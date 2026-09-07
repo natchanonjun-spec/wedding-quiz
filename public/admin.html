@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แก้ไขคำถาม — Wedding Quiz</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .wrap { max-width: 900px; }
+  .gate { max-width:420px; margin:auto; }
+  .grow { flex:1; display:flex; flex-direction:column; justify-content:center; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 5;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    padding:14px 16px; margin:0 -16px 8px;
+    background:rgba(29,15,51,.72);
+    backdrop-filter:blur(14px);
+    border-bottom:1px solid rgba(232,192,122,.18);
+  }
+  .toolbar .spacer { flex:1; }
+  .btn.sm { padding:9px 16px; font-size:15px; }
+
+  .q {
+    background:rgba(255,255,255,.06); border:1px solid rgba(232,192,122,.25);
+    border-radius:16px; padding:16px; margin-bottom:16px;
+  }
+  .q-top { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .q-num { font-weight:900; color:var(--gold); font-size:18px; min-width:34px; }
+  .icon {
+    background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15);
+    color:var(--cream); border-radius:10px; width:36px; height:36px; font-size:16px;
+  }
+  .icon.del { color:#ffb4b8; }
+  textarea.field { resize:vertical; min-height:60px; font-weight:700; }
+
+  .opt { display:flex; align-items:center; gap:10px; margin-top:9px; }
+  .opt .sw { flex:none; width:26px; height:26px; }
+  .opt input[type=radio] { width:22px; height:22px; accent-color:#2f9e6b; flex:none; }
+  .opt .field { padding:11px 14px; }
+  .opt .rm { flex:none; }
+
+  .row { display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .row label { font-size:14px; color:rgba(253,248,242,.75); font-weight:700; }
+  .row input[type=number] { width:90px; padding:9px 12px; }
+  .row select { padding:9px 12px; border-radius:10px; border:none; font-weight:700; }
+
+  .imgrow { display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  .imgrow .thumb { width:104px; height:68px; object-fit:cover; border-radius:10px;
+                   background:rgba(0,0,0,.3); flex:none; }
+  .imgrow .imghint { font-size:13px; color:rgba(253,248,242,.6); }
+
+  .save-state { font-weight:800; font-size:15px; }
+  .save-state.dirty { color:#ffd08a; }
+  .save-state.ok { color:#7dffb0; }
+  .save-state.err { color:#ffb4b8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- AUTH -->
+  <section id="s-auth" class="screen active">
+    <div class="grow">
+      <div class="card gate">
+        <div class="monogram center">Question editor</div>
+        <h2 class="center" style="margin:8px 0 18px">แก้ไขคำถาม</h2>
+        <input id="pw" class="field" type="password" placeholder="รหัสผ่านเจ้าภาพ" autocomplete="current-password">
+        <div style="height:12px"></div>
+        <button id="btn-auth" class="btn block">เข้าสู่ระบบ</button>
+        <div style="height:10px"></div>
+        <p id="auth-err" class="error center"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- EDITOR -->
+  <section id="s-edit" class="screen">
+    <div class="toolbar">
+      <div>
+        <div class="monogram">Wedding Quiz</div>
+        <div style="font-weight:900;font-size:20px"><span id="count">0</span> คำถาม</div>
+      </div>
+      <div class="spacer"></div>
+      <span id="save-state" class="save-state"></span>
+      <button id="b-add" class="btn ghost sm">+ เพิ่มคำถาม</button>
+      <button id="b-export" class="btn ghost sm">⬇ สำรองไฟล์</button>
+      <button id="b-import" class="btn ghost sm">⬆ นำเข้าไฟล์</button>
+      <button id="b-save" class="btn sm">บันทึก</button>
+    </div>
+
+    <p class="hint" style="margin-top:0">
+      ติ๊กวงกลมสีเขียวหน้าตัวเลือกที่เป็น <b>คำตอบที่ถูก</b> • ลากลำดับด้วยปุ่ม ▲ ▼ •
+      บันทึกได้เฉพาะตอนที่เกมยังไม่เริ่ม หรือจบเกมแล้ว
+    </p>
+
+    <p id="draft-note" class="hint" style="margin-top:0;color:#ffd08a"></p>
+    <p id="draft-warn" class="hint" style="margin-top:0;color:#ffb4b8"></p>
+
+    <div id="list"></div>
+
+    <button id="b-add2" class="btn ghost block" style="margin:6px 0 30px">+ เพิ่มคำถาม</button>
+    <input id="file" type="file" accept="application/json,.json" hidden>
+  </section>
+</div>
+
+<script src="/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+.env
+
+# Runtime state. questions.seed.json is the source of truth that ships with the
+# repo; data/questions.json is whatever /admin last saved on the running server.
+data/
+
+# Local throwaway test drivers - never ship these (they hardcode the host password)
+*.scratch.js

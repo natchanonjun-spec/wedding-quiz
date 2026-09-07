@@ -1,0 +1,32 @@
+# Render blueprint. Push this repo to GitHub, then in Render:
+#   New  ->  Blueprint  ->  pick the repo  ->  set HOST_PASSWORD when prompted.
+#
+# `plan: free` works, with two caveats (see README):
+#   1. the service sleeps after 15 min idle and takes ~50s to wake
+#   2. no persistent disk. That is why LOCK_QUESTIONS is on below: the questions
+#      (and their pictures) come from questions.seed.json in the repo, so nothing
+#      can be lost. /admin still edits and exports - it just cannot write to the
+#      server; export the file and commit it as questions.seed.json.
+#
+# Switching to `plan: starter` (~$7/month, cancel after the wedding) removes the
+# sleeping. If you do, also uncomment the `disk:` block to keep /admin edits.
+
+services:
+  - type: web
+    name: wedding-quiz
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: HOST_PASSWORD
+        sync: false        # you set this in the Render dashboard
+      - key: LOCK_QUESTIONS
+        value: "1"
+      - key: NODE_VERSION
+        value: "20"
+    # disk:                # paid plans only
+    #   name: quiz-data
+    #   mountPath: /opt/render/project/src/data
+    #   sizeGB: 1

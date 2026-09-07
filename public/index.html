@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d0f33">
+<title>Wedding Quiz — เกมตอบคำถามงานแต่ง</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .wrap { max-width: 620px; }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; padding: 4px 2px 14px;
+  }
+  .me { font-weight: 800; font-size: 16px; }
+  .pts { color: var(--gold); font-weight: 900; font-size: 16px; }
+  .qhead { font-size: 20px; font-weight: 800; line-height: 1.5; margin: 0 0 4px; }
+  .qmeta { color: rgba(253,248,242,.6); font-size: 14px; margin-bottom: 12px; }
+  .grow { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+  .big { font-size: 30px; font-weight: 900; line-height: 1.35; }
+  .huge { font-size: 64px; font-weight: 900; line-height: 1; }
+  .join-logo { font-size: 30px; font-weight: 900; line-height: 1.25; margin: 0; }
+  .pinbox { letter-spacing: .35em; text-align: center; font-size: 30px; }
+  .waitdots span { animation: blink 1.4s infinite; }
+  .waitdots span:nth-child(2) { animation-delay: .2s; }
+  .waitdots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,60%,100% { opacity:.25 } 30% { opacity:1 } }
+  .badge {
+    display:inline-block; padding:6px 14px; border-radius:999px;
+    background:rgba(232,192,122,.16); color:var(--gold-soft);
+    font-weight:700; font-size:14px;
+  }
+  .board { list-style:none; margin:16px 0 0; padding:0; }
+  .board li {
+    display:flex; align-items:center; gap:12px; padding:11px 14px; margin-bottom:8px;
+    border-radius:12px; background:rgba(255,255,255,.07); font-weight:700;
+  }
+  .board li.you { background:rgba(232,192,122,.2); border:1px solid rgba(232,192,122,.5); }
+  .board .r { width:26px; color:var(--gold); font-weight:900; }
+  .board .s { margin-left:auto; color:var(--gold-soft); }
+  .result-good { color:#7dffb0; }
+  .result-bad { color:#ffb4b8; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- JOIN -->
+  <section id="s-join" class="screen active">
+    <div class="grow">
+      <div class="center">
+        <div class="monogram">Wedding Quiz</div>
+        <h1 class="join-logo">มาเล่นเกมทายใจบ่าวสาวกัน 💍</h1>
+        <p class="hint">ใส่ PIN ที่ขึ้นบนจอ แล้วตั้งชื่อเล่นของคุณ</p>
+      </div>
+      <div class="card">
+        <input id="in-pin" class="field pinbox" inputmode="numeric" pattern="[0-9]*"
+               maxlength="6" placeholder="PIN" autocomplete="off">
+        <div style="height:12px"></div>
+        <input id="in-name" class="field" maxlength="18" placeholder="ชื่อเล่นของคุณ" autocomplete="off">
+        <div style="height:14px"></div>
+        <button id="btn-join" class="btn block">เข้าร่วมเกม</button>
+        <div style="height:10px"></div>
+        <p id="join-err" class="error center"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOBBY -->
+  <section id="s-lobby" class="screen">
+    <div class="grow center">
+      <div class="badge pop">คุณเข้าร่วมแล้ว!</div>
+      <div class="huge" id="lobby-name">—</div>
+      <p class="big waitdots">รอเจ้าภาพเริ่มเกม<span>.</span><span>.</span><span>.</span></p>
+      <p class="hint">อย่าปิดหน้านี้นะ • มีคนเข้าร่วมแล้ว <b id="lobby-count">0</b> คน</p>
+    </div>
+  </section>
+
+  <!-- QUESTION -->
+  <section id="s-q" class="screen">
+    <div class="topbar">
+      <div class="me" id="q-name">—</div>
+      <div class="pts"><span id="q-score">0</span> คะแนน</div>
+    </div>
+    <p class="qmeta" id="q-meta">ข้อ 1 / 10</p>
+    <h2 class="qhead" id="q-text">…</h2>
+    <div class="timerbar"><i id="q-bar"></i></div>
+    <div style="height:16px"></div>
+    <div class="grow" style="justify-content:flex-start">
+      <div id="q-ready" class="center" style="display:none">
+        <div class="huge pop" id="q-count">3</div>
+        <p class="hint">เตรียมตัว…</p>
+      </div>
+      <div id="q-answers" class="answers"></div>
+    </div>
+    <p id="q-note" class="hint center" style="min-height:24px"></p>
+  </section>
+
+  <!-- ANSWERED -->
+  <section id="s-sent" class="screen">
+    <div class="grow center">
+      <div class="huge pop">✓</div>
+      <div class="big">ส่งคำตอบแล้ว!</div>
+      <p class="hint">ยิ่งตอบเร็ว ยิ่งได้คะแนนเยอะ<br>รอดูเฉลยบนจอใหญ่ได้เลย</p>
+      <p id="sent-note" class="hint" style="color:#ffd08a"></p>
+    </div>
+  </section>
+
+  <!-- REVEAL -->
+  <section id="s-reveal" class="screen">
+    <div class="grow center">
+      <div class="huge pop" id="rv-icon">🎉</div>
+      <div class="big" id="rv-title">ถูกต้อง!</div>
+      <p class="hint" id="rv-sub"></p>
+      <div class="card" style="max-width:360px;margin:0 auto">
+        <div style="font-size:15px;color:rgba(253,248,242,.7)">คะแนนรวม</div>
+        <div class="huge" id="rv-total">0</div>
+        <div class="badge" id="rv-rank">อันดับ —</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCOREBOARD -->
+  <section id="s-board" class="screen">
+    <div class="grow">
+      <div class="center">
+        <div class="monogram">Leaderboard</div>
+        <div class="big">อันดับตอนนี้</div>
+      </div>
+      <ul class="board" id="board-list"></ul>
+      <p class="hint center" id="board-you"></p>
+    </div>
+  </section>
+
+  <!-- END -->
+  <section id="s-end" class="screen">
+    <div class="grow center">
+      <div class="huge pop" id="end-icon">🏆</div>
+      <div class="big" id="end-title">จบเกมแล้ว!</div>
+      <div class="card" style="max-width:360px;margin:0 auto">
+        <div style="font-size:15px;color:rgba(253,248,242,.7)">คะแนนของคุณ</div>
+        <div class="huge" id="end-score">0</div>
+        <div class="badge" id="end-rank">อันดับ —</div>
+      </div>
+      <ul class="board" id="end-list"></ul>
+      <p class="hint">ขอบคุณที่มาร่วมงานนะคะ/ครับ ❤️</p>
+    </div>
+  </section>
+
+  <p id="conn" class="hint center" style="min-height:20px"></p>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/player.js"></script>
+</body>
+</html>

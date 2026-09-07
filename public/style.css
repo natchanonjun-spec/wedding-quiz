@@ -1,0 +1,207 @@
+/* Wedding Quiz — shared styles */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;800;900&display=swap');
+
+:root {
+  --plum-900: #1d0f33;
+  --plum-800: #2b1550;
+  --plum-700: #3d1d6e;
+  --gold: #e8c07a;
+  --gold-soft: #f6e3c0;
+  --cream: #fdf8f2;
+  --ink: #241243;
+
+  --a0: #e04b53; /* red    — triangle */
+  --a1: #2b7fd4; /* blue   — diamond  */
+  --a2: #d9a326; /* gold   — circle   */
+  --a3: #2f9e6b; /* green  — square   */
+
+  --radius: 16px;
+  --shadow: 0 10px 30px rgba(20, 6, 40, .35);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: 'Noto Sans Thai', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--cream);
+  background: radial-gradient(1200px 800px at 20% -10%, #4a2276 0%, transparent 60%),
+              radial-gradient(1000px 700px at 100% 100%, #5b2a4a 0%, transparent 55%),
+              linear-gradient(160deg, #1d0f33 0%, #2b1550 55%, #1a0c2e 100%);
+  background-attachment: fixed;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+
+.screen { display: none; flex: 1; flex-direction: column; }
+.screen.active { display: flex; }
+
+.wrap {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- shared bits ---------- */
+
+.monogram {
+  font-weight: 900;
+  letter-spacing: .18em;
+  color: var(--gold);
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.card {
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid rgba(232, 192, 122, .28);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  padding: 22px;
+}
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  padding: 14px 26px;
+  font-weight: 800;
+  font-size: 17px;
+  background: var(--gold);
+  color: var(--ink);
+  transition: transform .12s ease, filter .12s ease;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.07); }
+.btn:active:not(:disabled) { transform: translateY(2px); }
+.btn.ghost {
+  background: transparent;
+  color: var(--gold-soft);
+  border: 1px solid rgba(232, 192, 122, .5);
+}
+.btn.danger { background: #c9424a; color: #fff; }
+.btn.block { width: 100%; }
+
+.field {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .95);
+  color: var(--ink);
+  font-weight: 700;
+  outline: none;
+}
+.field:focus { border-color: var(--gold); }
+.field::placeholder { color: #9a8fae; font-weight: 500; }
+
+.hint { color: rgba(253, 248, 242, .62); font-size: 14px; line-height: 1.6; }
+.error { color: #ffb4b8; font-weight: 700; min-height: 22px; font-size: 15px; }
+.center { text-align: center; }
+
+/* ---------- answer buttons (Kahoot-style) ---------- */
+
+.answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.answers.two { grid-template-columns: 1fr 1fr; }
+
+.answer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: none;
+  border-radius: var(--radius);
+  padding: 20px 18px;
+  color: #fff;
+  font-weight: 800;
+  font-size: 20px;
+  text-align: left;
+  line-height: 1.35;
+  box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .22), var(--shadow);
+  transition: transform .1s ease, opacity .2s ease;
+  /* Thai has no spaces: `break-word` would chop syllables apart, so leave the
+     line break to the browser's Thai dictionary and only force one as a last resort. */
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+
+@media (max-width: 430px) {
+  .answer { font-size: 17px; padding: 16px 14px; gap: 10px; }
+  .answer .shape { width: 24px; height: 24px; }
+}
+.answer:active:not(:disabled) { transform: translateY(3px); }
+.answer[data-a="0"] { background: var(--a0); }
+.answer[data-a="1"] { background: var(--a1); }
+.answer[data-a="2"] { background: var(--a2); }
+.answer[data-a="3"] { background: var(--a3); }
+.answer.dim { opacity: .28; }
+.answer.chosen { outline: 4px solid #fff; outline-offset: 3px; }
+.answer.right { outline: 5px solid #7dffb0; outline-offset: 3px; }
+
+.shape {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, .95);
+}
+.shape[data-s="0"] { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.shape[data-s="1"] { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.shape[data-s="2"] { border-radius: 50%; }
+.shape[data-s="3"] { border-radius: 4px; }
+
+/* ---------- timer ---------- */
+
+.timerbar {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  overflow: hidden;
+}
+.timerbar > i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--gold), #ff9f6e);
+  transition: width .25s linear;
+}
+
+.clock {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--ink);
+  font-size: 38px;
+  font-weight: 900;
+  flex: none;
+}
+
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.pop { animation: pop .35s cubic-bezier(.2, 1.4, .5, 1) both; }
