@@ -19,9 +19,40 @@
   function now() { return Date.now() + clockOffset; }
 
   function show(id) {
+    var el = $(id);
+    if (el.classList.contains('active')) return;   // already on screen - no replay, no extra work
     var screens = document.querySelectorAll('.screen');
     for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
-    $(id).classList.add('active');
+    el.classList.add('active');
+  }
+
+  // Reusable "something changed here" bounce, for the rank badge and the +score line
+  // on reveal. Reuses the .pop keyframe already defined in style.css.
+  function bounce(el) {
+    el.classList.remove('pop');
+    void el.offsetWidth;               // force a reflow so the animation restarts
+    el.classList.add('pop');
+  }
+
+  // Counts a guest's own score up to its new total instead of jumping straight there -
+  // this is the "your score is climbing" moment right after an answer is scored.
+  var lastShownScore = 0;
+  function setScoreText(el, val) {
+    el.textContent = val.toLocaleString('th-TH');
+    lastShownScore = val;
+  }
+  function animateScore(el, from, to, ms) {
+    if (from === to) { setScoreText(el, to); return; }
+    var start = null;
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min(1, (ts - start) / ms);
+      var eased = 1 - Math.pow(1 - p, 3);          // ease-out cubic
+      el.textContent = Math.round(from + (to - from) * eased).toLocaleString('th-TH');
+      if (p < 1) requestAnimationFrame(step);
+      else lastShownScore = to;
+    }
+    requestAnimationFrame(step);
   }
 
   function save() {
@@ -300,6 +331,7 @@
         stopTimerLoop();
         $('lobby-name').textContent = you.name;
         $('lobby-count').textContent = state.playerCount;
+        lastShownScore = you.score;   // keep the baseline correct across a mid-game rejoin
         show('s-lobby');
         break;
 
@@ -322,6 +354,7 @@
 
       case 'reveal': {
         stopTimerLoop();
+        var isNewReveal = key !== lastPhaseKey;
         var r = state.result || { correct: false, gained: 0, bonus: 0 };
         $('rv-icon').textContent = r.correct ? '🎉' : '💔';
         $('rv-title').textContent = r.correct ? 'ถูกต้อง!' : (r.choice == null ? 'ไม่ทันตอบ!' : 'ยังไม่ใช่!');
@@ -334,8 +367,14 @@
           sub = 'คำตอบที่ถูกคือ: ' + state.reveal.options[state.reveal.correct];
         }
         $('rv-sub').textContent = sub;
-        $('rv-total').textContent = you.score.toLocaleString('th-TH');
         $('rv-rank').textContent = 'อันดับ ' + you.rank + ' จาก ' + state.playerCount;
+        if (isNewReveal) {
+          animateScore($('rv-total'), lastShownScore, you.score, 700);
+          bounce($('rv-rank'));
+          if (sub) bounce($('rv-sub'));
+        } else {
+          setScoreText($('rv-total'), you.score);
+        }
         show('s-reveal');
         break;
       }
@@ -345,6 +384,7 @@
         renderBoard($('board-list'), state.scoreboard);
         $('board-you').textContent = 'คุณอยู่อันดับ ' + you.rank + ' • ' +
           you.score.toLocaleString('th-TH') + ' คะแนน';
+        lastShownScore = you.score;   // the climb already happened on the reveal screen
         show('s-board');
         break;
 
@@ -354,6 +394,7 @@
         $('end-title').textContent = you.rank === 1 ? 'คุณคือแชมป์!' : 'จบเกมแล้ว!';
         $('end-score').textContent = you.score.toLocaleString('th-TH');
         $('end-rank').textContent = 'อันดับ ' + you.rank + ' จาก ' + state.playerCount;
+        lastShownScore = you.score;
         renderBoard($('end-list'), state.scoreboard);
         show('s-end');
         break;

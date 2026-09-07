@@ -20,10 +20,29 @@
     $(id).classList.add('active');
   }
 
+  // Returns whether this call is an actual phase change, not a same-phase re-render
+  // (a roster update, a lock toggle) - callers use that to gate one-shot entrance
+  // animations (the fade-in itself, the leaderboard cascade, the reveal bar grow)
+  // so they play once per arrival instead of replaying on every state broadcast.
+  var currentView = '';
   function view(name) {
+    var changed = (name !== currentView);
+    currentView = name;
     ['lobby', 'q', 'reveal', 'board', 'end'].forEach(function (v) {
-      $('v-' + v).style.display = (v === name) ? '' : 'none';
+      var el = $('v-' + v);
+      if (v === name) {
+        el.style.display = '';
+        if (changed) {
+          el.classList.remove('view-in');
+          void el.offsetWidth;             // force a reflow so the animation restarts
+          el.classList.add('view-in');
+        }
+      } else {
+        el.style.display = 'none';
+        el.classList.remove('view-in');
+      }
     });
+    return changed;
   }
 
   /* ---------------- auth ---------------- */
@@ -240,7 +259,7 @@
 
   /* ---------------- reveal ---------------- */
 
-  function renderReveal() {
+  function renderReveal(animate) {
     var r = state.reveal;
     if (!r) return;
     $('rv-text').textContent = r.text;
@@ -248,6 +267,7 @@
     var box = $('rv-bars');
     box.innerHTML = '';
     box.className = 'bars' + (r.options.length <= 2 ? ' two' : '');
+    var fills = [];
     r.options.forEach(function (text, i) {
       var bar = document.createElement('div');
       bar.className = 'bar' + (i === r.correct ? '' : ' wrong');
@@ -261,9 +281,11 @@
       n.className = 'n';
       n.textContent = r.counts[i];
 
+      var pct = Math.round((r.counts[i] / max) * 100);
       var fill = document.createElement('div');
       fill.className = 'fill';
-      fill.style.height = Math.round((r.counts[i] / max) * 100) + '%';
+      fill.style.height = animate ? '0%' : pct + '%';
+      fills.push({ el: fill, pct: pct });
 
       var lbl = document.createElement('div');
       lbl.className = 'lbl';
@@ -272,6 +294,11 @@
       bar.appendChild(tick); bar.appendChild(n); bar.appendChild(fill); bar.appendChild(lbl);
       box.appendChild(bar);
     });
+    if (animate) {
+      void box.offsetHeight;   // flush the 0% height so the CSS transition below has
+                                // something to grow from, instead of jumping straight up
+      fills.forEach(function (f) { f.el.style.height = f.pct + '%'; });
+    }
     var correctCount = r.counts[r.correct] || 0;
     $('rv-sub').textContent = 'ตอบถูก ' + correctCount + ' คน' +
       (r.noAnswer ? '  •  ไม่ได้ตอบ ' + r.noAnswer + ' คน' : '');
@@ -279,10 +306,14 @@
 
   /* ---------------- boards ---------------- */
 
-  function renderList(el, rows, allowKick) {
+  function renderList(el, rows, allowKick, animate) {
     el.innerHTML = '';
-    rows.forEach(function (r) {
+    rows.forEach(function (r, i) {
       var li = document.createElement('li');
+      if (animate) {
+        li.className = 'row-in';
+        li.style.animationDelay = Math.min(i * 35, 400) + 'ms';
+      }
       var rank = document.createElement('span');
       rank.className = 'r';
       rank.textContent = r.rank;
@@ -403,20 +434,23 @@
         renderQuestion();
         timerLoop();
         break;
-      case 'reveal':
-        view('reveal');
+      case 'reveal': {
+        var enteredReveal = view('reveal');
         paintImage('rv-img', 'v-reveal');
-        renderReveal();
+        renderReveal(enteredReveal);
         break;
-      case 'scoreboard':
-        view('board');
-        renderList($('lb'), state.scoreboard.slice(0, 8), true);
+      }
+      case 'scoreboard': {
+        var enteredBoard = view('board');
+        renderList($('lb'), state.scoreboard.slice(0, 8), true, enteredBoard);
         break;
-      case 'ended':
-        view('end');
+      }
+      case 'ended': {
+        var enteredEnd = view('end');
         renderPodium(state.scoreboard.slice(0, 5));
-        renderList($('lb-end'), state.scoreboard.slice(5, 10));
+        renderList($('lb-end'), state.scoreboard.slice(5, 10), false, enteredEnd);
         break;
+      }
       default:
         break;
     }
