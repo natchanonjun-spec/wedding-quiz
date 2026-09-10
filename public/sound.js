@@ -312,6 +312,18 @@
       tone(130.81, t, 1.2, 'sine', 0.10);
     },
 
+    // One place arriving on the podium: a swell that rises, pitched by placing so
+    // third and second do not sound identical and neither steals the fanfare.
+    podiumRise: function (place) {
+      if (!ensure()) return;
+      var t = ctx.currentTime;
+      var root = place === 3 ? 261.63 : 329.63;      // C4 for third, E4 for second
+      tone(root, t, 0.55, 'triangle', 0.16, root * 2);
+      tone(root / 2, t, 0.6, 'sine', 0.20);
+      chord([root * 2, root * 2.5], t + 0.28, 0.4, 'triangle', 0.11);
+      noise(t, 0.22, 0.16, 1400);
+    },
+
     // Podium. This one is allowed to be loud.
     podium: function () {
       if (!ensure()) return;

@@ -388,21 +388,123 @@
     });
   }
 
-  function renderPodium(rows) {
+  /* ---------------- the winners moment ---------------- */
+
+  // Confetti, drawn rather than downloaded. It runs for a few seconds, then stops
+  // itself and hides the canvas so nothing keeps burning CPU behind the podium.
+  var confettiRaf = null;
+  var confettiStop = null;
+
+  function confetti(durationMs) {
+    var cv = $('confetti');
+    if (!cv || !cv.getContext) return;
+    if (confettiRaf) { cancelAnimationFrame(confettiRaf); confettiRaf = null; }
+
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.floor(window.innerWidth * dpr);
+    cv.height = Math.floor(window.innerHeight * dpr);
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cv.style.display = 'block';
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var COLOURS = ['#e8c07a', '#f3d698', '#ffffff', '#e04b53', '#2b7fd4', '#2f9e6b', '#d9a326'];
+    var bits = [];
+    for (var i = 0; i < 160; i++) {
+      bits.push({
+        x: W * (0.15 + Math.random() * 0.7),
+        y: H + Math.random() * 120,
+        vx: (Math.random() - 0.5) * 5.5,
+        vy: -(9 + Math.random() * 9),
+        w: 7 + Math.random() * 9,
+        h: 10 + Math.random() * 14,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.3,
+        c: COLOURS[(Math.random() * COLOURS.length) | 0]
+      });
+    }
+
+    var started = null;
+    var step = function (ts) {
+      if (started === null) started = ts;
+      var elapsed = ts - started;
+      ctx.clearRect(0, 0, W, H);
+      for (var j = 0; j < bits.length; j++) {
+        var b = bits[j];
+        b.vy += 0.32;                 // gravity
+        b.vx *= 0.995;
+        b.x += b.vx; b.y += b.vy; b.rot += b.vr;
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.rot);
+        ctx.fillStyle = b.c;
+        ctx.globalAlpha = Math.max(0, 1 - elapsed / durationMs);
+        ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+        ctx.restore();
+      }
+      if (elapsed < durationMs) { confettiRaf = requestAnimationFrame(step); }
+      else { ctx.clearRect(0, 0, W, H); cv.style.display = 'none'; confettiRaf = null; }
+    };
+    confettiRaf = requestAnimationFrame(step);
+    if (confettiStop) clearTimeout(confettiStop);
+    confettiStop = setTimeout(stopConfetti, durationMs + 800);
+  }
+
+  function stopConfetti() {
+    if (confettiRaf) { cancelAnimationFrame(confettiRaf); confettiRaf = null; }
+    if (confettiStop) { clearTimeout(confettiStop); confettiStop = null; }
+    var cv = $('confetti');
+    if (!cv) return;
+    if (cv.getContext && cv.width) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    cv.style.display = 'none';
+  }
+
+  // Sound and vision on the same clock: third at 0, second at 1.1s, the winner at
+  // 2.2s with the fanfare and the confetti. The CSS delays match these numbers.
+  var celebrationTimers = [];
+
+  function celebrate() {
+    cancelCelebration();
+    celebrationTimers.push(setTimeout(function () { snd('podiumRise', 3); }, 250));
+    celebrationTimers.push(setTimeout(function () { snd('podiumRise', 2); }, 1350));
+    celebrationTimers.push(setTimeout(function () {
+      snd('podium');
+      confetti(5200);
+    }, 2450));
+  }
+
+  function cancelCelebration() {
+    for (var i = 0; i < celebrationTimers.length; i++) clearTimeout(celebrationTimers[i]);
+    celebrationTimers = [];
+    stopConfetti();
+  }
+
+  var MEDAL = ['👑', '🥈', '🥉'];   // crown, silver, bronze
+
+  // animate=true only on the render that actually opens the end screen, so the
+  // reveal plays once rather than restarting on any later broadcast.
+  function renderPodium(rows, animate) {
     var pod = $('podium');
     pod.innerHTML = '';
     [1, 0, 2].forEach(function (i) {              // 2nd, 1st, 3rd - visual order
       var r = rows[i];
       if (!r) return;
       var d = document.createElement('div');
-      d.className = 'pod p' + (i + 1) + ' pop';
+      d.className = 'pod p' + (i + 1) + (animate ? ' rise' : '');
+
+      var medal = document.createElement('div');
+      medal.className = 'medal';
+      medal.textContent = MEDAL[i];
+
       var nm = document.createElement('div');
       nm.className = 'nm';
       nm.textContent = r.name + ' — ' + r.score.toLocaleString('th-TH');
+
       var blk = document.createElement('div');
       blk.className = 'blk';
       blk.textContent = i + 1;
-      d.appendChild(nm); d.appendChild(blk);
+
+      d.appendChild(medal); d.appendChild(nm); d.appendChild(blk);
       pod.appendChild(d);
     });
   }
@@ -475,11 +577,11 @@
     switch (state.phase) {
       case 'lobby':
         lastQuestionKey = '';
-        if (view('lobby')) snd('lobby');
+        if (view('lobby')) { cancelCelebration(); snd('lobby'); }
         renderLobby();
         break;
       case 'question': {
-        if (view('q')) { answersOpenCued = false; timeUpCued = false; }
+        if (view('q')) { cancelCelebration(); answersOpenCued = false; timeUpCued = false; }
         paintImage('q-img', 'v-q');
         renderQuestion();
         timerLoop();
@@ -500,8 +602,8 @@
       }
       case 'ended': {
         var enteredEnd = view('end');
-        if (enteredEnd) snd('podium');
-        renderPodium(state.scoreboard.slice(0, 3));
+        renderPodium(state.scoreboard.slice(0, 3), enteredEnd);
+        if (enteredEnd) celebrate();
         break;
       }
       default:

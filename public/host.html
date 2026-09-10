@@ -99,6 +99,34 @@
   .pod.p2 .blk { height:clamp(140px,26vh,296px); background:linear-gradient(180deg,#e6e6ee,#b6b6c4); }
   .pod.p3 .blk { height:clamp(112px,20vh,232px); background:linear-gradient(180deg,#e2ac82,#bd7d51); }
 
+  /* The places arrive one at a time, third first, so the room gets to wonder who
+     is on top before it sees it. Delays are staggered here and the sound cues in
+     host.js are scheduled to the same offsets. */
+  .pod.rise { animation:podRise .75s cubic-bezier(.18,.9,.25,1.06) both; }
+  .pod.p3.rise { animation-delay:0s; }
+  .pod.p2.rise { animation-delay:1.1s; }
+  .pod.p1.rise { animation-delay:2.2s; }
+  @keyframes podRise {
+    from { opacity:0; transform:translateY(70px) scale(.92); }
+    60%  { opacity:1; transform:translateY(-10px) scale(1.02); }
+    to   { opacity:1; transform:none; }
+  }
+
+  /* Medals sit above the name; the winner also gets a crown and a slow shimmer. */
+  .pod .medal { font-size:clamp(30px,3vw,52px); line-height:1; margin-bottom:2px; }
+  .pod.p1 .medal { font-size:clamp(40px,4vw,74px); animation:crownBob 2.6s ease-in-out infinite; }
+  @keyframes crownBob { 0%,100% { transform:translateY(0) rotate(-4deg) } 50% { transform:translateY(-9px) rotate(4deg) } }
+  .pod.p1 .nm { color:var(--gold); font-size:clamp(26px,2.4vw,40px); }
+  .pod.p1 .blk { animation:winnerGlow 2.4s ease-in-out 2.9s infinite; }
+  @keyframes winnerGlow {
+    0%,100% { box-shadow:0 0 34px rgba(232,192,122,.45); }
+    50%     { box-shadow:0 0 86px rgba(232,192,122,.95); }
+  }
+
+  /* Confetti sits above everything and ignores the mouse entirely. */
+  #confetti { position:fixed; inset:0; width:100%; height:100%;
+              pointer-events:none; z-index:30; display:none; }
+
   /* Shown when the browser is still blocking audio, so silence is never a mystery. */
   .btn.warn { background:rgba(232,192,122,.9); color:var(--ink); border-color:transparent;
               animation: warnPulse 1.6s ease-in-out infinite; }
@@ -247,6 +275,7 @@
   </section>
 </div>
 
+<canvas id="confetti"></canvas>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/sound.js"></script>
 <script src="/host.js"></script>
