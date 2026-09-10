@@ -14,6 +14,18 @@
 
   function now() { return Date.now() + clockOffset; }
 
+  // sound.js is optional: if it is missing or the browser has no Web Audio, every
+  // cue below quietly does nothing rather than taking the projector down mid-game.
+  function snd(cue, a, b) {
+    var S = window.WQSound;
+    if (S && typeof S[cue] === 'function') { try { S[cue](a, b); } catch (e) { /* never break the screen for audio */ } }
+  }
+
+  function soundLabel() {
+    var on = window.WQSound ? window.WQSound.isEnabled() : false;
+    $('c-sound').textContent = on ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
+  }
+
   function show(id) {
     var screens = document.querySelectorAll('.screen');
     for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
@@ -53,6 +65,7 @@
         authed = true;
         try { sessionStorage.setItem('wq.host', password); } catch (e) { /* ignore */ }
         show('s-main');
+        soundLabel();
       } else {
         $('auth-err').textContent = 'รหัสผ่านไม่ถูกต้อง';
         try { sessionStorage.removeItem('wq.host'); } catch (e) { /* ignore */ }
@@ -60,7 +73,7 @@
     });
   }
 
-  $('btn-auth').addEventListener('click', function () { authenticate($('pw').value); });
+  $('btn-auth').addEventListener('click', function () { snd('unlock'); authenticate($('pw').value); });
   $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') authenticate($('pw').value); });
 
   /* ---------------- controls ---------------- */
@@ -69,6 +82,14 @@
     if (state && state.playerCount === 0 && !confirm('ยังไม่มีผู้เล่นเลย เริ่มเกมเลยไหม?')) return;
     socket.emit('host:start');
   });
+  $('c-sound').addEventListener('click', function () {
+    if (!window.WQSound) return;
+    window.WQSound.setEnabled(!window.WQSound.isEnabled());
+    soundLabel();
+    // Re-open the bed for whatever is on screen right now.
+    if (window.WQSound.isEnabled() && state && state.phase === 'lobby') snd('lobby');
+  });
+
   $('c-skip').addEventListener('click', function () { socket.emit('host:skip'); });
   $('c-next').addEventListener('click', function () { socket.emit('host:next'); });
   $('c-lock').addEventListener('click', function () {
@@ -235,6 +256,9 @@
     $('q-total').textContent = state.playerCount;
   }
 
+  var answersOpenCued = false;
+  var timeUpCued = false;
+
   function timerLoop() {
     if (raf) cancelAnimationFrame(raf);
     var tick = function () {
@@ -242,15 +266,23 @@
       var t = now();
       $('clock').style.display = '';
       if (t < state.startsAt) {
-        $('clock').textContent = String(Math.max(1, Math.ceil((state.startsAt - t) / 1000)));
+        var readyLeft = Math.max(1, Math.ceil((state.startsAt - t) / 1000));
+        $('clock').textContent = String(readyLeft);
         $('q-answers').style.visibility = 'hidden';
         $('q-bar').style.width = '100%';
+        snd('readyBeep', readyLeft);
       } else {
         $('q-answers').style.visibility = 'visible';
         var total = state.endsAt - state.startsAt;
         var left = Math.max(0, state.endsAt - t);
         $('clock').textContent = String(Math.ceil(left / 1000));
         $('q-bar').style.width = (total > 0 ? (left / total) * 100 : 0) + '%';
+        if (!answersOpenCued) { answersOpenCued = true; snd('questionStart'); }
+        if (left <= 0) {
+          if (!timeUpCued) { timeUpCued = true; snd('timeUp'); }
+        } else {
+          snd('tick', left, total);
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -425,28 +457,32 @@
     switch (state.phase) {
       case 'lobby':
         lastQuestionKey = '';
-        view('lobby');
+        if (view('lobby')) snd('lobby');
         renderLobby();
         break;
-      case 'question':
-        view('q');
+      case 'question': {
+        if (view('q')) { answersOpenCued = false; timeUpCued = false; }
         paintImage('q-img', 'v-q');
         renderQuestion();
         timerLoop();
         break;
+      }
       case 'reveal': {
         var enteredReveal = view('reveal');
+        if (enteredReveal) snd('reveal');
         paintImage('rv-img', 'v-reveal');
         renderReveal(enteredReveal);
         break;
       }
       case 'scoreboard': {
         var enteredBoard = view('board');
+        if (enteredBoard) snd('scoreboard');
         renderList($('lb'), state.scoreboard.slice(0, 8), true, enteredBoard);
         break;
       }
       case 'ended': {
         var enteredEnd = view('end');
+        if (enteredEnd) snd('podium');
         renderPodium(state.scoreboard.slice(0, 5));
         renderList($('lb-end'), state.scoreboard.slice(5, 10), false, enteredEnd);
         break;
