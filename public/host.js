@@ -391,7 +391,7 @@
   function renderPodium(rows) {
     var pod = $('podium');
     pod.innerHTML = '';
-    [3, 1, 0, 2, 4].forEach(function (i) {        // 4th, 2nd, 1st, 3rd, 5th — visual order
+    [1, 0, 2].forEach(function (i) {              // 2nd, 1st, 3rd - visual order
       var r = rows[i];
       if (!r) return;
       var d = document.createElement('div');
@@ -501,8 +501,7 @@
       case 'ended': {
         var enteredEnd = view('end');
         if (enteredEnd) snd('podium');
-        renderPodium(state.scoreboard.slice(0, 5));
-        renderList($('lb-end'), state.scoreboard.slice(5, 10), false, enteredEnd);
+        renderPodium(state.scoreboard.slice(0, 3));
         break;
       }
       default:

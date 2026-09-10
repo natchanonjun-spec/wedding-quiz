@@ -13,17 +13,28 @@
   .stat b { display:block; font-size:34px; font-weight:900; color:var(--gold); line-height:1; }
   .stat span { font-size:13px; color:rgba(253,248,242,.62); }
 
-  .pin-hero { display:flex; gap:40px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  /* The projector must never scroll and must never push its own controls off the
+     bottom. Every flex box in the chain defaults to min-height:auto, meaning it
+     refuses to shrink below its contents, so a full 150-guest lobby grew the page
+     past the screen. Pinning the page to the viewport and clearing those minimums
+     lets the one scrollable box - the guest name list - absorb the squeeze. */
+  html, body { height:100vh; height:100dvh; overflow:hidden; }
+  body > .wrap, .screen { min-height:0; }
+  .grow { min-height:0; overflow:auto; }
+
+  .pin-hero { display:flex; gap:40px; align-items:center; justify-content:center; flex-wrap:wrap;
+               flex:0 0 auto; }
   .pin-num {
     font-size: clamp(72px, 15vw, 190px); font-weight:900; letter-spacing:.08em;
     color:var(--gold); line-height:1; text-shadow:0 8px 40px rgba(232,192,122,.35);
   }
-  .qr { background:#fff; padding:14px; border-radius:18px; width:250px; height:250px; }
+  .qr { background:#fff; padding:clamp(14px, 1.6vh, 24px); border-radius:18px;
+        width:clamp(260px, 40vh, 480px); height:clamp(260px, 40vh, 480px); }
   .qr svg { width:100%; height:100%; display:block; }
   .url { font-size:26px; font-weight:800; word-break:break-all; }
 
   .chips { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:20px;
-           max-height:34vh; overflow:auto; padding:4px; }
+           flex:0 1 auto; min-height:0; max-height:30vh; overflow:auto; padding:4px; }
   .chip { background:rgba(255,255,255,.1); border:1px solid rgba(232,192,122,.3);
           padding:8px 16px; border-radius:999px; font-weight:700; font-size:18px; }
   .chip.off { opacity:.4; }
@@ -77,17 +88,16 @@
   .hasimg#v-reveal .qimg { max-height:22vh; }
   .hasimg#v-reveal .bars { margin-top:6px; }
 
-  .podium { display:flex; align-items:flex-end; justify-content:center; gap:16px; margin:20px 0; }
+  .podium { display:flex; align-items:flex-end; justify-content:center; gap:clamp(18px,2.4vw,44px);
+            margin:clamp(6px,1.2vh,24px) 0; }
   .pod { text-align:center; }
-  .pod .nm { font-size:21px; font-weight:900; margin-bottom:10px; max-width:170px;
-             word-break:normal; overflow-wrap:break-word; }
-  .pod .blk { width:150px; border-radius:16px 16px 0 0; display:grid; place-items:center;
-              font-size:46px; font-weight:900; color:var(--ink); }
-  .pod.p1 .blk { height:230px; background:linear-gradient(180deg,#f3d698,#d9a326); }
-  .pod.p2 .blk { height:178px; background:linear-gradient(180deg,#e6e6ee,#b6b6c4); }
-  .pod.p3 .blk { height:140px; background:linear-gradient(180deg,#e2ac82,#bd7d51); }
-  .pod.p4 .blk { height:110px; background:linear-gradient(180deg,#b9a9d6,#8b76b5); }
-  .pod.p5 .blk { height:88px;  background:linear-gradient(180deg,#a9c4d6,#7695b5); }
+  .pod .nm { font-size:clamp(22px,2vw,34px); font-weight:900; margin-bottom:12px;
+             max-width:clamp(180px,16vw,300px); word-break:normal; overflow-wrap:break-word; }
+  .pod .blk { width:clamp(180px,17vw,320px); border-radius:20px 20px 0 0; display:grid;
+              place-items:center; font-size:clamp(58px,6vw,104px); font-weight:900; color:var(--ink); }
+  .pod.p1 .blk { height:clamp(190px,35vh,400px); background:linear-gradient(180deg,#f3d698,#d9a326); }
+  .pod.p2 .blk { height:clamp(140px,26vh,296px); background:linear-gradient(180deg,#e6e6ee,#b6b6c4); }
+  .pod.p3 .blk { height:clamp(112px,20vh,232px); background:linear-gradient(180deg,#e2ac82,#bd7d51); }
 
   /* Shown when the browser is still blocking audio, so silence is never a mystery. */
   .btn.warn { background:rgba(232,192,122,.9); color:var(--ink); border-color:transparent;
@@ -207,7 +217,6 @@
         <h2 style="font-size:44px;margin:6px 0 0">ขอบคุณที่ร่วมสนุกนะคะ/ครับ 🥂</h2>
       </div>
       <div class="podium" id="podium"></div>
-      <ul class="lb" id="lb-end"></ul>
     </div>
 
     <div class="controls">
