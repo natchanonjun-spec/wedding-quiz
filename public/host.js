@@ -22,8 +22,19 @@
   }
 
   function soundLabel() {
-    var on = window.WQSound ? window.WQSound.isEnabled() : false;
-    $('c-sound').textContent = on ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
+    var S = window.WQSound;
+    var btn = $('c-sound');
+    if (!S) { btn.textContent = '🔇 เสียง: ปิด'; return; }
+    if (!S.isEnabled()) { btn.textContent = '🔇 เสียง: ปิด'; btn.classList.remove('warn'); return; }
+    // A context that is not running means the browser is still blocking audio -
+    // say so, rather than showing a speaker icon over silence.
+    if (S.state() !== 'running') {
+      btn.textContent = '🔇 กดตรงนี้เพื่อเปิดเสียง';
+      btn.classList.add('warn');
+      return;
+    }
+    btn.textContent = '🔊 เสียง: เปิด';
+    btn.classList.remove('warn');
   }
 
   function show(id) {
@@ -82,9 +93,15 @@
     if (state && state.playerCount === 0 && !confirm('ยังไม่มีผู้เล่นเลย เริ่มเกมเลยไหม?')) return;
     socket.emit('host:start');
   });
+  if (window.WQSound && window.WQSound.onUnlockChange) window.WQSound.onUnlockChange(soundLabel);
+
   $('c-sound').addEventListener('click', function () {
     if (!window.WQSound) return;
-    window.WQSound.setEnabled(!window.WQSound.isEnabled());
+    // The click itself is a user gesture, so this doubles as an unlock.
+    window.WQSound.unlock();
+    if (!window.WQSound.isEnabled() || window.WQSound.state() === 'running') {
+      window.WQSound.setEnabled(!window.WQSound.isEnabled());
+    }
     soundLabel();
     // Re-open the bed for whatever is on screen right now.
     if (window.WQSound.isEnabled() && state && state.phase === 'lobby') snd('lobby');
@@ -440,6 +457,7 @@
     $('st-q').textContent = (state.phase === 'lobby' ? 0 : Math.min(state.index + 1, state.questionCount)) +
       '/' + state.questionCount;
     $('c-lock').textContent = state.joinLocked ? '🔓 เปิดรับผู้เล่น' : '🔒 ปิดรับผู้เล่น';
+    soundLabel();
 
     // Start must be reachable whenever a game is not actually running, otherwise a
     // finished or interrupted game strands the host with no visible way forward.

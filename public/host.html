@@ -89,6 +89,11 @@
   .pod.p4 .blk { height:110px; background:linear-gradient(180deg,#b9a9d6,#8b76b5); }
   .pod.p5 .blk { height:88px;  background:linear-gradient(180deg,#a9c4d6,#7695b5); }
 
+  /* Shown when the browser is still blocking audio, so silence is never a mystery. */
+  .btn.warn { background:rgba(232,192,122,.9); color:var(--ink); border-color:transparent;
+              animation: warnPulse 1.6s ease-in-out infinite; }
+  @keyframes warnPulse { 0%,100% { opacity:1 } 50% { opacity:.62 } }
+
   .controls { display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
               padding:14px 0 4px; border-top:1px solid rgba(232,192,122,.2); margin-top:14px; }
 

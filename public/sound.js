@@ -21,6 +21,9 @@
   var bedNextTime = 0;
   var lastTickAt = 0;        // guards the per-frame tick scheduler
   var lastReadyBeep = -1;
+  var unlockWatchers = [];
+
+  var MASTER = 0.85;         // measured: podium peaks near -7dBFS, still no clipping
 
   try {
     enabled = localStorage.getItem('wq.sound') !== 'off';
@@ -37,7 +40,7 @@
       if (!AC) return null;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = 0.30;          // a PA will amplify this - stay polite
+      master.gain.value = MASTER;
       master.connect(ctx.destination);
     }
     if (ctx.state === 'suspended') ctx.resume();
@@ -106,6 +109,31 @@
     }
   }
 
+  function notifyUnlockWatchers() {
+    for (var i = 0; i < unlockWatchers.length; i++) {
+      try { unlockWatchers[i](); } catch (e) { /* a listener must not break audio */ }
+    }
+  }
+
+  // Note the capture phase and the deliberate lack of "once": resume() can be
+  // rejected, so this keeps trying until the context is genuinely running.
+  function armUnlock() {
+    var fire = function () {
+      if (!enabled) return;
+      if (!ctx) ensure(); else if (ctx.state === 'suspended') ctx.resume().then(notifyUnlockWatchers, function () {});
+      if (ctx && ctx.state === 'running') {
+        document.removeEventListener('pointerdown', fire, true);
+        document.removeEventListener('keydown', fire, true);
+        document.removeEventListener('touchstart', fire, true);
+      }
+      notifyUnlockWatchers();
+    };
+    document.addEventListener('pointerdown', fire, true);
+    document.addEventListener('keydown', fire, true);
+    document.addEventListener('touchstart', fire, true);
+  }
+  armUnlock();
+
   /* ---------------- cues ---------------- */
 
   /* The lobby loop.
@@ -138,13 +166,13 @@
     if (beat === 0) {
       // Chord change: pad for the whole bar, bass on the downbeat.
       for (var i = 0; i < bar.pad.length; i++) {
-        tone(bar.pad[i], at, BED_STEP * BED_STEPS_PER_BAR * 0.95, 'sine', 0.045, null, bed);
+        tone(bar.pad[i], at, BED_STEP * BED_STEPS_PER_BAR * 0.95, 'sine', 0.036, null, bed);
       }
-      tone(bar.bass, at, BED_STEP * 3.2, 'sine', 0.11, null, bed);
+      tone(bar.bass, at, BED_STEP * 3.2, 'sine', 0.088, null, bed);
     }
-    if (beat === 4) tone(bar.bass, at, BED_STEP * 2.4, 'sine', 0.075, null, bed);
+    if (beat === 4) tone(bar.bass, at, BED_STEP * 2.4, 'sine', 0.06, null, bed);
 
-    tone(bar.arp[beat], at, BED_STEP * 1.7, 'triangle', beat % 2 === 0 ? 0.055 : 0.038, null, bed);
+    tone(bar.arp[beat], at, BED_STEP * 1.7, 'triangle', beat % 2 === 0 ? 0.044 : 0.031, null, bed);
   }
 
   var API = {
@@ -153,6 +181,11 @@
 
     isEnabled: function () { return enabled; },
 
+    // 'running' | 'suspended' | 'none' - anything but running means silence.
+    state: function () { return ctx ? ctx.state : 'none'; },
+
+    onUnlockChange: function (fn) { unlockWatchers.push(fn); },
+
     setEnabled: function (on) {
       enabled = !!on;
       try { localStorage.setItem('wq.sound', enabled ? 'on' : 'off'); } catch (e) { /* ignore */ }
@@ -160,7 +193,7 @@
         API.stopAll();
         if (master) master.gain.value = 0;
       } else if (ensure()) {
-        master.gain.value = 0.30;
+        master.gain.value = MASTER;
       }
     },
 
