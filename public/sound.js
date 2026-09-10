@@ -15,7 +15,10 @@
   var ctx = null;
   var master = null;
   var enabled = true;
-  var loopTimer = null;      // lobby bed
+  var loopTimer = null;      // lobby bed scheduler
+  var bed = null;            // gain node the whole loop hangs off
+  var bedStep = 0;
+  var bedNextTime = 0;
   var lastTickAt = 0;        // guards the per-frame tick scheduler
   var lastReadyBeep = -1;
 
@@ -42,7 +45,7 @@
   }
 
   // One note: oscillator through its own envelope, disposed when it finishes.
-  function tone(freq, at, dur, type, peak, glideTo) {
+  function tone(freq, at, dur, type, peak, glideTo, dest) {
     if (!ctx) return;
     var osc = ctx.createOscillator();
     var g = ctx.createGain();
@@ -55,7 +58,7 @@
     g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
 
     osc.connect(g);
-    g.connect(master);
+    g.connect(dest || master);
     osc.start(at);
     osc.stop(at + dur + 0.02);
   }
@@ -88,11 +91,61 @@
 
   function clearLoop() {
     if (loopTimer) { clearInterval(loopTimer); loopTimer = null; }
+    if (bed && ctx) {
+      // Pads ring for a whole bar, so cutting the node dead would chop a chord in
+      // half. Fade the bus out instead and drop it once the tail has gone.
+      var dying = bed;
+      bed = null;
+      try {
+        var t = ctx.currentTime;
+        dying.gain.cancelScheduledValues(t);
+        dying.gain.setValueAtTime(dying.gain.value, t);
+        dying.gain.linearRampToValueAtTime(0.0001, t + 0.25);
+        setTimeout(function () { try { dying.disconnect(); } catch (e) { /* already gone */ } }, 500);
+      } catch (e) { /* nothing left to fade */ }
+    }
   }
 
   /* ---------------- cues ---------------- */
 
-  var LOBBY = [523.25, 659.25, 783.99, 659.25, 587.33, 783.99, 1046.50, 783.99];
+  /* The lobby loop.
+   *
+   * A four bar C - G - Am - F progression at 84bpm: bass, a sustained pad and an
+   * arpeggio on eighth notes. It is written as data so the scheduler below stays
+   * dumb, and it wraps at the end of bar four, so it loops seamlessly for as long
+   * as guests take to arrive.
+   */
+  var BED_BPM = 84;
+  var BED_STEP = (60 / BED_BPM) / 2;      // one eighth note, in seconds
+  var BED_STEPS_PER_BAR = 8;
+
+  var BED_BARS = [
+    { bass: 65.41,  pad: [261.63, 329.63, 392.00],            // C  : C2  / C4 E4 G4
+      arp: [523.25, 659.25, 783.99, 659.25, 523.25, 659.25, 783.99, 1046.50] },
+    { bass: 98.00,  pad: [246.94, 293.66, 392.00],            // G  : G2  / B3 D4 G4
+      arp: [493.88, 587.33, 783.99, 587.33, 493.88, 587.33, 783.99, 987.77] },
+    { bass: 110.00, pad: [220.00, 261.63, 329.63],            // Am : A2  / A3 C4 E4
+      arp: [440.00, 523.25, 659.25, 523.25, 440.00, 523.25, 659.25, 880.00] },
+    { bass: 87.31,  pad: [174.61, 220.00, 261.63],            // F  : F2  / F3 A3 C4
+      arp: [349.23, 440.00, 523.25, 440.00, 349.23, 440.00, 523.25, 698.46] }
+  ];
+
+  // Schedules one eighth note of the loop at an exact time on the audio clock.
+  function bedStepAt(step, at) {
+    var bar = BED_BARS[Math.floor(step / BED_STEPS_PER_BAR) % BED_BARS.length];
+    var beat = step % BED_STEPS_PER_BAR;
+
+    if (beat === 0) {
+      // Chord change: pad for the whole bar, bass on the downbeat.
+      for (var i = 0; i < bar.pad.length; i++) {
+        tone(bar.pad[i], at, BED_STEP * BED_STEPS_PER_BAR * 0.95, 'sine', 0.045, null, bed);
+      }
+      tone(bar.bass, at, BED_STEP * 3.2, 'sine', 0.11, null, bed);
+    }
+    if (beat === 4) tone(bar.bass, at, BED_STEP * 2.4, 'sine', 0.075, null, bed);
+
+    tone(bar.arp[beat], at, BED_STEP * 1.7, 'triangle', beat % 2 === 0 ? 0.055 : 0.038, null, bed);
+  }
 
   var API = {
     // Called from the login click, which is the gesture the browser wants.
@@ -117,23 +170,38 @@
       lastTickAt = 0;
     },
 
-    // Warm, unhurried arpeggio while guests wander in and scan the QR.
+    // Continuous background music while guests wander in and scan the QR.
+    //
+    // Notes are scheduled ahead on the audio clock rather than played the moment a
+    // timer happens to fire: setInterval jitters by tens of milliseconds, which is
+    // fine for the odd twinkle but audible as sloppy timing once there is a beat.
     lobby: function () {
       if (!ensure()) return;
       API.stopAll();
-      var step = 0;
-      var play = function () {
+
+      bed = ctx.createGain();
+      bed.gain.value = 0.0001;
+      bed.connect(master);
+      bed.gain.linearRampToValueAtTime(1, ctx.currentTime + 1.2);   // fade in, no thud
+
+      bedStep = 0;
+      bedNextTime = ctx.currentTime + 0.12;
+
+      var schedule = function () {
         try {
-          var t = ctx.currentTime;
-          tone(LOBBY[step % LOBBY.length], t, 0.9, 'triangle', 0.10);
-          if (step % 4 === 0) tone(130.81, t, 1.4, 'sine', 0.09);   // soft C3 pad underneath
-          step++;
+          if (!bed) { clearLoop(); return; }
+          // Stay about a fifth of a second ahead of the playhead.
+          while (bedNextTime < ctx.currentTime + 0.2) {
+            bedStepAt(bedStep, bedNextTime);
+            bedNextTime += BED_STEP;
+            bedStep = (bedStep + 1) % (BED_BARS.length * BED_STEPS_PER_BAR);
+          }
         } catch (e) {
           clearLoop();          // fail silent and stay stopped, never once per tick
         }
       };
-      play();
-      loopTimer = setInterval(play, 430);
+      schedule();
+      loopTimer = setInterval(schedule, 25);
     },
 
     // 3-2-1 before the answers unlock: one rising beep per second.
