@@ -123,12 +123,13 @@
 
   <!-- SCOREBOARD -->
   <section id="s-board" class="screen">
-    <div class="grow">
-      <div class="center">
-        <div class="monogram">Leaderboard</div>
-        <div class="big">อันดับตอนนี้</div>
+    <div class="grow center">
+      <div class="monogram">อันดับตอนนี้</div>
+      <div class="card" style="max-width:360px;margin:0 auto">
+        <div style="font-size:15px;color:rgba(253,248,242,.7)" id="board-caption"></div>
+        <div class="huge" id="board-rank">&mdash;</div>
+        <div class="badge" id="board-score"></div>
       </div>
-      <ul class="board" id="board-list"></ul>
       <p class="hint center" id="board-you"></p>
     </div>
   </section>
@@ -143,7 +144,6 @@
         <div class="huge" id="end-score">0</div>
         <div class="badge" id="end-rank">อันดับ —</div>
       </div>
-      <ul class="board" id="end-list"></ul>
       <p class="hint">ขอบคุณที่มาร่วมงานนะคะ/ครับ ❤️</p>
     </div>
   </section>

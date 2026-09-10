@@ -389,17 +389,9 @@ function playerState(player) {
     state.result = player.lastResult;
     state.reveal = revealPayload();
   }
-  if (game.phase === 'scoreboard' || game.phase === 'ended') {
-    // Never ship player ids to guests: `player:join` accepts an id to resume a
-    // session, so leaking the leader's id would let anyone rejoin as them.
-    const myId = player ? player.id : null;
-    state.scoreboard = ranked().slice(0, 5).map((r) => ({
-      name: r.name,
-      score: r.score,
-      rank: r.rank,
-      me: r.id === myId,
-    }));
-  }
+  // Guests are shown their own placing only, never a list of other people, so
+  // there is nothing to send here. That also spares 150 phones a copy of the
+  // leaderboard and the server a full ranked() sort per guest per broadcast.
   return state;
 }
 

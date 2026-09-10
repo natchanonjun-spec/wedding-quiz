@@ -286,24 +286,6 @@
 
   /* ---------------- leaderboards ---------------- */
 
-  function renderBoard(el, rows) {
-    el.innerHTML = '';
-    (rows || []).forEach(function (r) {
-      var li = document.createElement('li');
-      if (r.me) li.classList.add('you');
-      var rank = document.createElement('span');
-      rank.className = 'r';
-      rank.textContent = r.rank;
-      var name = document.createElement('span');
-      name.textContent = r.name;
-      var score = document.createElement('span');
-      score.className = 's';
-      score.textContent = r.score.toLocaleString('th-TH');
-      li.appendChild(rank); li.appendChild(name); li.appendChild(score);
-      el.appendChild(li);
-    });
-  }
-
   /* ---------------- render ---------------- */
 
   var lastPhaseKey = '';
@@ -381,9 +363,10 @@
 
       case 'scoreboard':
         stopTimerLoop();
-        renderBoard($('board-list'), state.scoreboard);
-        $('board-you').textContent = 'คุณอยู่อันดับ ' + you.rank + ' • ' +
-          you.score.toLocaleString('th-TH') + ' คะแนน';
+        $('board-caption').textContent = 'คุณอยู่อันดับ';
+        $('board-rank').textContent = you.rank;
+        $('board-score').textContent = you.score.toLocaleString('th-TH') + ' คะแนน';
+        $('board-you').textContent = 'จาก ' + state.playerCount + ' คน';
         lastShownScore = you.score;   // the climb already happened on the reveal screen
         show('s-board');
         break;
@@ -395,7 +378,6 @@
         $('end-score').textContent = you.score.toLocaleString('th-TH');
         $('end-rank').textContent = 'อันดับ ' + you.rank + ' จาก ' + state.playerCount;
         lastShownScore = you.score;
-        renderBoard($('end-list'), state.scoreboard);
         show('s-end');
         break;
 
