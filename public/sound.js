@@ -162,7 +162,8 @@
 
   // Schedules one eighth note of the loop at an exact time on the audio clock.
   function bedStepAt(step, at) {
-    var bar = BED_BARS[Math.floor(step / BED_STEPS_PER_BAR) % BED_BARS.length];
+    var barIndex = Math.floor(step / BED_STEPS_PER_BAR) % BED_BARS.length;
+    var bar = BED_BARS[barIndex];
     var beat = step % BED_STEPS_PER_BAR;
 
     // Four-on-the-floor kick (a sine pitched down fast) on every quarter note -
@@ -183,7 +184,19 @@
     }
     if (beat === 4) tone(bar.bass, at, BED_STEP * 2.4, 'sawtooth', 0.15, null, bed);
 
-    tone(bar.arp[beat], at, BED_STEP * 1.7, 'square', beat % 2 === 0 ? 0.11 : 0.08, null, bed);
+    // The lead hook: a square wave doubled with a slightly detuned sawtooth a
+    // few cents above it (a cheap "supersaw" trick) gives it the wide, bright
+    // edge of an opening-theme hook instead of a thin single oscillator.
+    var hookHz = bar.arp[beat];
+    var hookPeak = beat % 2 === 0 ? 0.11 : 0.08;
+    tone(hookHz, at, BED_STEP * 1.7, 'square', hookPeak, null, bed);
+    tone(hookHz * 1.008, at, BED_STEP * 1.7, 'sawtooth', hookPeak * 0.5, null, bed);
+
+    // A riser sweeping up into the last half-beat of the final bar - the small
+    // "here it comes again" lift right before the loop turns over.
+    if (barIndex === BED_BARS.length - 1 && beat === 6) {
+      tone(220, at, BED_STEP * 2, 'sawtooth', 0.09, 1400, bed);
+    }
   }
 
   var API = {
@@ -303,12 +316,22 @@
     },
 
     // The answer goes up on the big screen.
+    // The answer goes up on the big screen: a short rising pickup, then one
+    // resolute, anthemic chord hit - bigger and brighter than a plain chord,
+    // meant to feel like a decision landing rather than a chime.
     reveal: function () {
       if (!ensure()) return;
       clearLoop();
       var t = ctx.currentTime;
-      chord([523.25, 659.25, 783.99, 1046.50], t, 0.7, 'triangle', 0.15);
-      noise(t, 0.25, 0.16, 1600);
+      var pickup = [523.25, 659.25, 783.99];
+      for (var i = 0; i < pickup.length; i++) {
+        tone(pickup[i], t + i * 0.075, 0.16, 'sawtooth', 0.13);
+      }
+      var hitAt = t + pickup.length * 0.075 + 0.03;
+      chord([523.25, 659.25, 783.99, 1046.50, 1318.51], hitAt, 0.85, 'sawtooth', 0.11);
+      tone(130.81, hitAt, 0.7, 'sine', 0.22, 65.41);        // low punch under the chord
+      noise(hitAt, 0.35, 0.18, 2000);
+      noise(hitAt, 0.05, 0.16, 3200);                       // a sharp crack for impact
     },
 
     // Leaderboard: a short rising shimmer, then quiet so the MC can talk.
