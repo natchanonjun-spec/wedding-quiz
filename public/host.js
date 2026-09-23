@@ -276,8 +276,23 @@
   var answersOpenCued = false;
   var timeUpCued = false;
 
+  var lastClockDigit = null;
+
+  // A digit that just swaps text every second reads as static; a small pop on
+  // the second it actually changes is what makes a countdown feel like it's
+  // counting rather than just displaying a number.
+  function bumpClock(digit) {
+    if (digit === lastClockDigit) return;
+    lastClockDigit = digit;
+    var el = $('clock');
+    el.classList.remove('pop');
+    void el.offsetWidth;
+    el.classList.add('pop');
+  }
+
   function timerLoop() {
     if (raf) cancelAnimationFrame(raf);
+    lastClockDigit = null;
     var tick = function () {
       if (!state || state.phase !== 'question') { $('clock').style.display = 'none'; return; }
       var t = now();
@@ -285,6 +300,7 @@
       if (t < state.startsAt) {
         var readyLeft = Math.max(1, Math.ceil((state.startsAt - t) / 1000));
         $('clock').textContent = String(readyLeft);
+        bumpClock('r' + readyLeft);
         $('q-answers').style.visibility = 'hidden';
         $('q-bar').style.width = '100%';
         snd('readyBeep', readyLeft);
@@ -292,7 +308,9 @@
         $('q-answers').style.visibility = 'visible';
         var total = state.endsAt - state.startsAt;
         var left = Math.max(0, state.endsAt - t);
-        $('clock').textContent = String(Math.ceil(left / 1000));
+        var secLeft = Math.ceil(left / 1000);
+        $('clock').textContent = String(secLeft);
+        bumpClock(secLeft);
         $('q-bar').style.width = (total > 0 ? (left / total) * 100 : 0) + '%';
         if (!answersOpenCued) { answersOpenCued = true; snd('questionStart'); }
         if (left <= 0) {

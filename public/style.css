@@ -94,7 +94,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   font-size: 17px;
   background: var(--gold);
   color: var(--ink);
-  transition: transform .12s ease, filter .12s ease;
+  transition: transform .16s cubic-bezier(.22, .85, .32, 1), filter .16s ease;
 }
 .btn:hover:not(:disabled) { filter: brightness(1.07); }
 .btn:active:not(:disabled) { transform: translateY(2px); }
@@ -146,7 +146,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   text-align: left;
   line-height: 1.35;
   box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .22), var(--shadow);
-  transition: transform .1s ease, opacity .2s ease;
+  transition: transform .15s cubic-bezier(.22, .85, .32, 1), opacity .2s ease;
   /* Thai has no spaces: `break-word` would chop syllables apart, so leave the
      line break to the browser's Thai dictionary and only force one as a last resort. */
   word-break: normal;

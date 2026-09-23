@@ -252,8 +252,11 @@
 
   /* ---------------- timer ---------------- */
 
+  var lastReadyDigit = null;
+
   function startTimerLoop() {
     stopTimerLoop();
+    lastReadyDigit = null;
     var tick = function () {
       if (!state || state.phase !== 'question') return;
       var t = now();
@@ -261,7 +264,12 @@
       if (t < state.startsAt) {
         $('q-ready').style.display = '';
         $('q-answers').style.display = 'none';
-        $('q-count').textContent = String(Math.max(1, Math.ceil((state.startsAt - t) / 1000)));
+        var digit = Math.max(1, Math.ceil((state.startsAt - t) / 1000));
+        if (digit !== lastReadyDigit) {
+          lastReadyDigit = digit;
+          $('q-count').textContent = String(digit);
+          bounce($('q-count'));   // 3, 2, 1 should each land with a beat, not just swap
+        }
         $('q-bar').style.width = '100%';
       } else {
         $('q-ready').style.display = 'none';

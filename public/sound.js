@@ -66,8 +66,9 @@
     osc.stop(at + dur + 0.02);
   }
 
-  // Filtered white noise - the percussive hits.
-  function noise(at, dur, peak, freq) {
+  // Filtered white noise - the percussive hits. dest lets the lobby loop's claps
+  // and hats route through the bed bus so they fade out with everything else.
+  function noise(at, dur, peak, freq, dest) {
     if (!ctx) return;
     var frames = Math.max(1, Math.floor(ctx.sampleRate * dur));
     var buf = ctx.createBuffer(1, frames, ctx.sampleRate);
@@ -83,7 +84,7 @@
     g.gain.setValueAtTime(peak, at);
     g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
 
-    src.connect(bp); bp.connect(g); g.connect(master);
+    src.connect(bp); bp.connect(g); g.connect(dest || master);
     src.start(at);
     src.stop(at + dur + 0.02);
   }
@@ -138,12 +139,13 @@
 
   /* The lobby loop.
    *
-   * A four bar C - G - Am - F progression at 84bpm: bass, a sustained pad and an
-   * arpeggio on eighth notes. It is written as data so the scheduler below stays
-   * dumb, and it wraps at the end of bar four, so it loops seamlessly for as long
-   * as guests take to arrive.
+   * A four bar C - G - Am - F progression at 132bpm with a four-on-the-floor kick,
+   * an off-beat clap, a running eighth-note hat, and a sawtooth/square arp on top -
+   * built to feel like a countdown-to-the-party rather than hold music. It is
+   * written as data so the scheduler below stays dumb, and it wraps at the end of
+   * bar four so it keeps running with no gap for as long as guests take to arrive.
    */
-  var BED_BPM = 84;
+  var BED_BPM = 132;
   var BED_STEP = (60 / BED_BPM) / 2;      // one eighth note, in seconds
   var BED_STEPS_PER_BAR = 8;
 
@@ -163,16 +165,25 @@
     var bar = BED_BARS[Math.floor(step / BED_STEPS_PER_BAR) % BED_BARS.length];
     var beat = step % BED_STEPS_PER_BAR;
 
+    // Four-on-the-floor kick (a sine pitched down fast) on every quarter note -
+    // this is what makes the loop drive instead of just float.
+    if (beat % 2 === 0) tone(118, at, 0.15, 'sine', 0.30, 44, bed);
+    // Clap on the backbeat.
+    if (beat === 2 || beat === 6) noise(at, 0.09, 0.20, 2100, bed);
+    // A light running hat keeps the pulse going even between the big hits, so
+    // the loop never has a dead moment.
+    noise(at, 0.03, 0.04, 8500, bed);
+
     if (beat === 0) {
       // Chord change: pad for the whole bar, bass on the downbeat.
       for (var i = 0; i < bar.pad.length; i++) {
-        tone(bar.pad[i], at, BED_STEP * BED_STEPS_PER_BAR * 0.95, 'sine', 0.036, null, bed);
+        tone(bar.pad[i], at, BED_STEP * BED_STEPS_PER_BAR * 0.95, 'sawtooth', 0.075, null, bed);
       }
-      tone(bar.bass, at, BED_STEP * 3.2, 'sine', 0.088, null, bed);
+      tone(bar.bass, at, BED_STEP * 3.2, 'sawtooth', 0.20, null, bed);
     }
-    if (beat === 4) tone(bar.bass, at, BED_STEP * 2.4, 'sine', 0.06, null, bed);
+    if (beat === 4) tone(bar.bass, at, BED_STEP * 2.4, 'sawtooth', 0.15, null, bed);
 
-    tone(bar.arp[beat], at, BED_STEP * 1.7, 'triangle', beat % 2 === 0 ? 0.044 : 0.031, null, bed);
+    tone(bar.arp[beat], at, BED_STEP * 1.7, 'square', beat % 2 === 0 ? 0.11 : 0.08, null, bed);
   }
 
   var API = {
