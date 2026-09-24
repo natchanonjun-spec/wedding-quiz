@@ -1,9 +1,12 @@
 /* Wedding Quiz - projector sound.
  *
- * Everything here is synthesised live with the Web Audio API: no mp3 files, so
- * nothing to license, nothing to download at the venue, and nothing added to the
- * repo. It also means the ticking can follow the server-authoritative clock
- * exactly instead of drifting against a pre-recorded loop.
+ * Everything here is synthesised live with the Web Audio API - no mp3 files,
+ * so the ticking can follow the server-authoritative clock exactly instead of
+ * drifting against a pre-recorded loop - EXCEPT the question-phase bed, which
+ * is one AI-generated (Suno) drum track at public/audio/tension.mp3, chosen
+ * because a synthesised drone/pulse couldn't get the "epic" weight this cue
+ * needed. It only needs to play once per question, not loop or stay in sync
+ * with anything, so a real recording is fine there.
  *
  * Sound belongs to the BIG SCREEN only - the projector is what is plugged into
  * the venue speakers. 150 phones playing the same loop slightly out of sync
@@ -22,8 +25,12 @@
   var lastTickAt = 0;        // guards the per-frame tick scheduler
   var lastReadyBeep = -1;
   var unlockWatchers = [];
+  var tensionBuffer = null;      // decoded public/audio/tension.mp3, once loaded
+  var tensionBufferPromise = null;
+  var bedSource = null;          // the AudioBufferSourceNode currently playing it, if any
 
   var MASTER = 0.85;         // measured: podium peaks near -7dBFS, still no clipping
+  var TENSION_GAIN = 0.35;   // source file peaks ~0.71 raw - this keeps it under other cues
 
   try {
     enabled = localStorage.getItem('wq.sound') !== 'off';
@@ -42,9 +49,37 @@
       master = ctx.createGain();
       master.gain.value = MASTER;
       master.connect(ctx.destination);
+      loadTensionBuffer();   // kick this off now so it's ready well before question 1
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
+  }
+
+  // Fetches and decodes the question-phase drum track once, in the background.
+  // Never blocks a cue: questionStart() falls back to the synthesised pulse
+  // below until this resolves.
+  function loadTensionBuffer() {
+    if (tensionBuffer || tensionBufferPromise || !ctx) return tensionBufferPromise;
+    tensionBufferPromise = fetch('audio/tension.mp3')
+      .then(function (r) { return r.arrayBuffer(); })
+      .then(function (data) { return ctx.decodeAudioData(data); })
+      .then(function (decoded) { tensionBuffer = decoded; })
+      .catch(function () { tensionBufferPromise = null; });  // offline/blocked - fallback stays in use
+    return tensionBufferPromise;
+  }
+
+  // Starts the real drum track once, routed through dest so it fades with the
+  // rest of the question's bed. It runs ~19.5s, longer than any question's
+  // 10s answer window, so unlike the synthesised pulse it never needs to loop.
+  function startTensionTrack(dest) {
+    if (!ctx || !tensionBuffer) return;
+    bedSource = ctx.createBufferSource();
+    bedSource.buffer = tensionBuffer;
+    var g = ctx.createGain();
+    g.gain.value = TENSION_GAIN;
+    bedSource.connect(g);
+    g.connect(dest);
+    bedSource.start(ctx.currentTime + 0.05);
   }
 
   // One note: oscillator through its own envelope, disposed when it finishes.
@@ -93,8 +128,41 @@
     for (var i = 0; i < freqs.length; i++) tone(freqs[i], at, dur, type, peak);
   }
 
+  // A low, rhythmic bass-and-drum pulse - the "epic, suspenseful" atmosphere
+  // under a question. No high tone, no dissonant buzz: just a sustained sub
+  // note for body and a slow heartbeat-style pair of kick thumps ("dum-dum
+  // ... dum-dum ...") like a thriller score, so it reads as tension rather
+  // than as a siren. dest lets it hang off the question's own bed so it
+  // fades with everything else when the phase changes.
+  function tensionPulse(at, dur, dest) {
+    if (!ctx) return;
+    var sub = ctx.createOscillator();
+    var subG = ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.value = 41.20;                  // E1 - felt more than heard
+    subG.gain.setValueAtTime(0.0001, at);
+    subG.gain.exponentialRampToValueAtTime(0.10, at + 0.6);
+    subG.gain.setValueAtTime(0.10, Math.max(at + 0.6, at + dur - 0.6));
+    subG.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    sub.connect(subG);
+    subG.connect(dest || master);
+    sub.start(at); sub.stop(at + dur + 0.05);
+
+    var beatGap = 0.42;    // spacing between the two thumps of one heartbeat
+    var pairGap = 1.15;    // silence between heartbeats
+    var end = at + dur;
+    for (var tt = at; tt < end; tt += beatGap + pairGap) {
+      tone(70, tt, 0.22, 'sine', 0.30, 32, dest);            // first thump, deep
+      tone(60, tt + beatGap, 0.20, 'sine', 0.24, 26, dest);  // second thump, softer
+    }
+  }
+
   function clearLoop() {
     if (loopTimer) { clearInterval(loopTimer); loopTimer = null; }
+    if (bedSource) {
+      try { bedSource.stop(); } catch (e) { /* already ended on its own */ }
+      bedSource = null;
+    }
     if (bed && ctx) {
       // Pads ring for a whole bar, so cutting the node dead would chop a chord in
       // half. Fade the bus out instead and drop it once the tail has gone.
@@ -261,17 +329,27 @@
       loopTimer = setInterval(schedule, 25);
     },
 
-    // 3-2-1 before the answers unlock: one rising beep per second.
+    // 3-2-1 before the answers unlock: a big drum hit per second, tightening
+    // and hitting harder as it counts down to "1" - the drop the question's
+    // reveal-of-answers moment deserves, instead of a thin beep.
     readyBeep: function (secondsLeft) {
       if (!ensure() || secondsLeft === lastReadyBeep) return;
       lastReadyBeep = secondsLeft;
       var t = ctx.currentTime;
+      var step = secondsLeft >= 3 ? 0 : (secondsLeft === 2 ? 1 : 2);   // 0 -> 3, 2 -> 1
+      var peak = (0.30 + step * 0.05) * 0.7;   // -30% from the original hit
+      // A low tom (with a sub layer under it for weight) - pitched up slightly
+      // each beat, like the hit is winding tighter toward the drop.
+      tone(150 + step * 20, t, 0.28, 'sine', peak, 55 + step * 8);
+      tone(75 + step * 10, t, 0.34, 'sine', peak * 0.7, 27 + step * 4);
+      noise(t, 0.12, peak * 0.6, 1600);                                // crack on top of the hit
       var pitch = secondsLeft >= 3 ? 440 : (secondsLeft === 2 ? 554.37 : 659.25);
-      tone(pitch, t, 0.16, 'square', 0.18);
-      noise(t, 0.05, 0.10, 2400);
+      tone(pitch, t + 0.02, 0.12, 'square', 0.07);                     // faint pitched cue, for "which count" clarity
     },
 
-    // The question is live: a hit, then the pulse bed starts ticking.
+    // The question is live: a hit, then the epic drum track (or, until it has
+    // loaded, the synthesised bass/drum pulse) sits underneath the whole
+    // answer window while the accelerating tick() cue drives on top of it.
     questionStart: function () {
       if (!ensure()) return;
       clearLoop();
@@ -280,6 +358,30 @@
       chord([523.25, 659.25, 783.99], t, 0.35, 'sawtooth', 0.16);
       noise(t, 0.18, 0.22, 1200);
       tone(110, t, 0.5, 'sine', 0.22);
+
+      bed = ctx.createGain();
+      bed.gain.value = 1;
+      bed.connect(master);
+      var liveBed = bed;
+
+      if (tensionBuffer) {
+        // ~19.5s, comfortably longer than any question's 10s answer window,
+        // so - unlike the fallback pulse - it never needs to loop.
+        startTensionTrack(liveBed);
+      } else {
+        loadTensionBuffer();
+        // The pulse re-triggers itself every 9s so it keeps covering the
+        // question no matter how long the host set the time limit to, until
+        // clearLoop() (a phase change) fades it out - the same bus-and-fade
+        // mechanic the lobby loop uses, just holding one long note instead of
+        // a sequenced pattern. Only used while the real track is still loading.
+        var retrigger = function () {
+          if (bed !== liveBed) return;   // a later clearLoop() already replaced/cleared it
+          tensionPulse(ctx.currentTime + 0.05, 9.5, liveBed);
+        };
+        retrigger();
+        loopTimer = setInterval(retrigger, 9000);
+      }
     },
 
     // Driven from the existing requestAnimationFrame timer so the ticks stay
@@ -302,7 +404,10 @@
 
       var t = ctx.currentTime;
       tone(pitch, t, 0.07, 'square', vol);
-      tone(msLeft <= 5000 ? 110 : 82.41, t, 0.16, 'sine', 0.18);   // heartbeat
+      // A low war-drum thump under every tick, pitched down fast like the lobby
+      // kick - this is what turns "a beep" into "something heavy is closing in".
+      tone(msLeft <= 5000 ? 92 : 68, t, 0.17, 'sine', msLeft <= 3000 ? 0.30 : 0.20,
+        msLeft <= 5000 ? 40 : 30);
       if (msLeft <= 3000) noise(t, 0.04, 0.09, 3000);
     },
 
