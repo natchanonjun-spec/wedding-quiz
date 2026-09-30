@@ -33,12 +33,55 @@
   .qr svg { width:100%; height:100%; display:block; }
   .url { font-size:26px; font-weight:800; word-break:break-all; }
 
-  .chips { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:20px;
-           flex:0 1 auto; min-height:0; max-height:30vh; overflow:auto; padding:4px; }
-  .chip { background:rgba(255,255,255,.1); border:1px solid rgba(232,192,122,.3);
-          padding:8px 16px; border-radius:999px; font-weight:700; font-size:18px; }
-  .chip.off { opacity:.4; }
-  .chip button { background:none; border:none; color:#ffb4b8; font-size:16px; margin-left:6px; padding:0; }
+  /* Lobby "field": each joined guest becomes a little pixel character running
+     left to right forever. Runner elements are created once per player and
+     never rebuilt while they're still around (see renderField() in host.js),
+     so a new join never restarts everyone else's run mid-stride. */
+  .field { position:relative; z-index:0; margin-top:20px; flex:0 1 auto; min-height:0;
+           height:clamp(200px, 32vh, 380px); overflow:hidden; border-radius:18px;
+           background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.12) 70%);
+           border:1px solid rgba(232,192,122,.2); }
+  .field::after { content:''; position:absolute; left:0; right:0; bottom:10%; height:2px;
+                   background:rgba(232,192,122,.3); }
+
+  /* Backdrops for the lobby field and each question, built from one shared CC0
+     hills silhouette (kenney.nl) tinted per "biome" + a few biome-appropriate
+     decor sprites scattered along the bottom. The container (.field / #v-q)
+     gets position:relative + z-index:0 so it establishes its own stacking
+     context - that keeps this z-index:-1 layer pinned behind just its OWN
+     siblings instead of sinking below unrelated page content, and it's
+     absolute/inset so it never affects layout height (the min-height:0
+     overflow rules elsewhere in this file stay intact). */
+  .scene-bg { position:absolute; inset:0; z-index:-1; overflow:hidden; pointer-events:none;
+              border-radius:inherit; }
+  .scene-bg .sky { position:absolute; inset:0; }
+  .scene-bg .hills { position:absolute; left:0; right:0; bottom:0; height:60%;
+                      background-image:url(img/bg/hills.png); background-repeat:repeat-x;
+                      background-position:bottom; background-size:auto 100%; opacity:.55; }
+  .scene-bg .deco { position:absolute; bottom:6%; image-rendering:pixelated; opacity:.9; }
+
+  .biome-meadow .sky  { background:linear-gradient(180deg, rgba(97,199,158,.20), transparent 65%); }
+  .biome-autumn .sky  { background:linear-gradient(180deg, rgba(224,142,64,.22), transparent 65%); }
+  .biome-autumn .hills{ filter:hue-rotate(-45deg) saturate(1.3); }
+  .biome-snow .sky    { background:linear-gradient(180deg, rgba(200,225,255,.24), transparent 65%); }
+  .biome-snow .hills  { filter:saturate(.15) brightness(1.5); }
+  .biome-desert .sky  { background:linear-gradient(180deg, rgba(232,192,122,.26), transparent 65%); }
+  .biome-desert .hills{ filter:hue-rotate(-95deg) saturate(.8) brightness(1.15); }
+  .biome-kingdom .sky { background:linear-gradient(180deg, rgba(180,150,255,.20), transparent 65%); }
+
+  #v-q.grow { position:relative; z-index:0; }
+  /* Animates `left`, not `transform: translateX()` - a transform percentage
+     resolves against the RUNNER's own width (~46px), not the field's, so it
+     would only ever shuffle near the left edge instead of crossing it. */
+  .runner { position:absolute; left:-60px; width:46px; animation-name:runX;
+            animation-timing-function:linear; animation-iteration-count:infinite; }
+  .runner img { display:block; width:100%; image-rendering:pixelated; filter:drop-shadow(0 3px 3px rgba(0,0,0,.35)); }
+  .runner .tag { position:absolute; left:50%; bottom:100%; transform:translateX(-50%); margin-bottom:2px;
+                 white-space:nowrap; font-size:11px; font-weight:800; background:rgba(20,6,40,.65);
+                 padding:2px 7px; border-radius:999px; pointer-events:none; }
+  .runner.off { opacity:.35; filter:grayscale(1); }
+  .runner .kick { position:absolute; inset:-6px; background:none; border:none; cursor:pointer; opacity:0; }
+  @keyframes runX { from { left:-60px; } to { left:100%; } }
 
   .qtext { font-size: clamp(28px, 3.6vw, 52px); font-weight:900; line-height:1.35;
            text-align:center; margin:10px 0 22px; }
@@ -121,6 +164,51 @@
   @keyframes winnerGlow {
     0%,100% { box-shadow:0 0 34px rgba(232,192,122,.45); }
     50%     { box-shadow:0 0 86px rgba(232,192,122,.95); }
+  }
+
+  /* The "goal run" - a first-person dash to the finish line that plays once,
+     full-screen, right as the last question hands off to the podium (see
+     playGoalRun() in host.js). A fake-3D road (a repeating stripe pattern
+     whose background-position races toward the viewer) plus posts flying
+     outward from the vanishing point reads as "running forward" without
+     needing real 3D transforms - cheap enough to run smoothly on a laptop. */
+  .goalrun { position:fixed; inset:0; z-index:40; overflow:hidden; pointer-events:none;
+             opacity:0; transition:opacity .4s ease; }
+  .goalrun.show { opacity:1; }
+  .goalrun .grsky { position:absolute; inset:0;
+                     background:linear-gradient(180deg, #ffb35c 0%, #e8637a 32%, #4a2276 68%, #1d0f33 100%); }
+  .goalrun .grsun { position:absolute; left:50%; top:22%; width:16vh; height:16vh; border-radius:50%;
+                     transform:translate(-50%,-50%); background:radial-gradient(circle, #fff3d6, #ffcf7a 60%, transparent 72%); }
+  .goalrun .grroad { position:absolute; left:0; right:0; bottom:0; height:52%;
+                      background:#2a1546;
+                      background-image:repeating-linear-gradient(90deg, rgba(232,192,122,.85) 0 3%, transparent 3% 12%);
+                      background-size:200% 100%;
+                      clip-path:polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+                      animation:grRoad .5s linear infinite; }
+  @keyframes grRoad { from { background-position:0 0; } to { background-position:-200% 0; } }
+  .goalrun .grpost { position:absolute; top:50%; left:50%; width:10px; height:34vh;
+                      margin:-2vh 0 0 -5px; transform-origin:50% 0;
+                      background:linear-gradient(180deg, #6b4a2f, #3d2a1a);
+                      animation:grFly 1.1s linear infinite; opacity:0; }
+  @keyframes grFly {
+    0%   { transform:translateX(0) scale(.05); opacity:0; }
+    12%  { opacity:.9; }
+    100% { transform:translateX(var(--fx)) scale(1.6); opacity:0; }
+  }
+  .goalrun .grrunner { position:absolute; left:50%; bottom:6%; width:min(22vh, 30vw); transform:translateX(-50%);
+                        image-rendering:pixelated; filter:drop-shadow(0 10px 14px rgba(0,0,0,.5));
+                        animation:grBob .28s ease-in-out infinite alternate; }
+  @keyframes grBob { from { transform:translateX(-50%) translateY(0) rotate(-2deg); }
+                       to   { transform:translateX(-50%) translateY(-3.5vh) rotate(2deg); } }
+  .goalrun .grbanner { position:absolute; left:50%; top:38%; transform:translate(-50%,-140%) scale(.6); opacity:0;
+                        font-size:clamp(48px, 9vw, 130px); font-weight:900; letter-spacing:.06em; color:var(--gold);
+                        text-shadow:0 0 30px rgba(232,192,122,.8), 0 10px 0 rgba(0,0,0,.35); white-space:nowrap; }
+  .goalrun.banner .grbanner { animation:grBanner 1.1s cubic-bezier(.2,1.6,.4,1) forwards; }
+  @keyframes grBanner {
+    0%   { transform:translate(-50%,-140%) scale(.6); opacity:0; }
+    60%  { transform:translate(-50%,-50%) scale(1.15); opacity:1; }
+    80%  { transform:translate(-50%,-50%) scale(.96); }
+    100% { transform:translate(-50%,-50%) scale(1); opacity:1; }
   }
 
   /* Confetti sits above everything and ignores the mouse entirely. */
@@ -207,12 +295,15 @@
         </div>
         <div class="qr" id="qr"></div>
       </div>
-      <div class="chips" id="chips"></div>
+      <div class="field" id="field">
+        <div class="scene-bg biome-meadow" id="field-bg"></div>
+      </div>
       <p class="hint center" id="lobby-hint">รอผู้เล่นเข้าร่วม…</p>
     </div>
 
     <!-- question -->
     <div id="v-q" class="grow" style="display:none">
+      <div class="scene-bg" id="q-bg"></div>
       <div class="center hint" id="q-num" style="font-size:20px">ข้อ 1 / 10</div>
       <div class="qtext" id="q-text">…</div>
       <img id="q-img" class="qimg" alt="" hidden>
@@ -276,6 +367,14 @@
 </div>
 
 <canvas id="confetti"></canvas>
+<div class="goalrun" id="goalrun">
+  <div class="grsky"></div>
+  <div class="grsun"></div>
+  <div class="grroad"></div>
+  <div id="gr-posts"></div>
+  <img class="grrunner" id="gr-runner" alt="" src="img/characters/player_walk1.png">
+  <div class="grbanner" id="gr-banner">GOAL!</div>
+</div>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/sound.js"></script>
 <script src="/host.js"></script>

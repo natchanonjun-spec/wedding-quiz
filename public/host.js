@@ -203,10 +203,122 @@
     }
   });
 
+  /* ---------------- scene backdrops ---------------- */
+
+  // One shared CC0 hills silhouette (kenney.nl), tinted + decorated per
+  // "biome" so the lobby and each question get a different backdrop without
+  // needing separate art for every one. Questions cycle through the list by
+  // index, so the same question always looks the same but the quiz visibly
+  // moves through a few different little worlds.
+  var BIOMES = ['meadow', 'autumn', 'snow', 'desert', 'kingdom'];
+  var BIOME_DECO = {
+    meadow: ['meadow_tree.png', 'meadow_pine.png', 'meadow_bush1.png', 'meadow_bush2.png'],
+    autumn: ['autumn_tree.png', 'autumn_tree2.png', 'autumn_bush1.png', 'autumn_bush2.png'],
+    snow: ['snow_tree.png', 'snow_pine.png', 'snow_frozen.png'],
+    desert: ['desert_pyramid.png', 'desert_cactus1.png', 'desert_cactus2.png'],
+    kingdom: ['kingdom_castle.png', 'kingdom_tower.png', 'kingdom_fence.png', 'kingdom_bush.png']
+  };
+  var DECO_LEFT = [6, 22, 78, 92, 38, 60];   // spread across the width, decor count varies per biome
+
+  function renderSceneBg(el, biome) {
+    if (!el) return;
+    el.className = 'scene-bg biome-' + biome;
+    el.innerHTML = '<div class="sky"></div><div class="hills"></div>';
+    var deco = BIOME_DECO[biome] || BIOME_DECO.meadow;
+    for (var i = 0; i < deco.length; i++) {
+      var img = document.createElement('img');
+      img.className = 'deco';
+      img.alt = '';
+      img.src = 'img/bg/' + deco[i];
+      img.style.left = DECO_LEFT[i % DECO_LEFT.length] + '%';
+      img.style.height = (i % 2 === 0 ? 32 : 24) + '%';
+      el.appendChild(img);
+    }
+  }
+
+  renderSceneBg($('field-bg'), 'meadow');   // the field's backdrop never changes, so paint it once
+
   /* ---------------- lobby ---------------- */
 
   function joinUrl() {
     return location.origin;
+  }
+
+  // Each guest becomes a little pixel character (one of 5 CC0 sprites from
+  // kenney.nl) running left to right across the lobby screen, forever, until
+  // the game starts. A cheap string hash on the player's own id picks their
+  // character/lane/speed deterministically, so the same guest always looks
+  // the same and a reconnect doesn't reshuffle anyone.
+  var CHARACTERS = ['adventurer', 'female', 'player', 'soldier', 'zombie'];
+  var LANES = 6;
+  var runnerNodes = {};        // player id -> element, kept alive across renders
+  var runnerFrameTimer = null;
+
+  function hashId(id) {
+    var h = 0;
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  function makeRunner(p) {
+    var h = hashId(p.id);
+    var el = document.createElement('div');
+    el.className = 'runner';
+    el._char = CHARACTERS[h % CHARACTERS.length];
+    el._frame = 1;
+    el.style.top = (6 + (Math.floor(h / 8) % LANES) * (80 / LANES)) + '%';
+    el.style.animationDuration = (7 + (Math.floor(h / 64) % 6)) + 's';           // 7-12s per lap
+    el.style.animationDelay = -((Math.floor(h / 1024) % 1000) / 100) + 's';      // starts mid-stride, not lined up
+
+    var img = document.createElement('img');
+    img.alt = '';
+    img.src = 'img/characters/' + el._char + '_walk1.png';
+    el.appendChild(img);
+
+    var tag = document.createElement('div');
+    tag.className = 'tag';
+    el.appendChild(tag);
+
+    var kick = document.createElement('button');
+    kick.className = 'kick';
+    kick.title = 'เตะออก';
+    kick.addEventListener('click', function () { socket.emit('host:kick', { id: p.id }); });
+    el.appendChild(kick);
+
+    return el;
+  }
+
+  // A shared, lightweight interval flips every runner between its two walk
+  // frames - one timer for the whole field instead of one per character.
+  function ensureRunnerFrameLoop() {
+    if (runnerFrameTimer) return;
+    runnerFrameTimer = setInterval(function () {
+      for (var id in runnerNodes) {
+        var el = runnerNodes[id];
+        el._frame = el._frame === 1 ? 2 : 1;
+        el.firstChild.src = 'img/characters/' + el._char + '_walk' + el._frame + '.png';
+      }
+    }, 220);
+  }
+
+  function renderField() {
+    var field = $('field');
+    var seen = {};
+    state.players.forEach(function (p) {
+      seen[p.id] = true;
+      var el = runnerNodes[p.id];
+      if (!el) {
+        el = makeRunner(p);
+        runnerNodes[p.id] = el;
+        field.appendChild(el);
+      }
+      el.classList.toggle('off', !p.connected);
+      el.querySelector('.tag').textContent = p.name;
+    });
+    for (var id in runnerNodes) {
+      if (!seen[id]) { runnerNodes[id].remove(); delete runnerNodes[id]; }
+    }
+    ensureRunnerFrameLoop();
   }
 
   function renderLobby() {
@@ -222,19 +334,7 @@
         .catch(function () { $('qr').style.display = 'none'; });
     }
 
-    var chips = $('chips');
-    chips.innerHTML = '';
-    state.players.forEach(function (p) {
-      var d = document.createElement('div');
-      d.className = 'chip' + (p.connected ? '' : ' off');
-      d.textContent = p.name;
-      var x = document.createElement('button');
-      x.textContent = '✕';
-      x.title = 'เตะออก';
-      x.addEventListener('click', function () { socket.emit('host:kick', { id: p.id }); });
-      d.appendChild(x);
-      chips.appendChild(d);
-    });
+    renderField();
 
     $('lobby-hint').textContent = state.joinLocked
       ? '🔒 ปิดรับผู้เล่นแล้ว'
@@ -248,6 +348,7 @@
     var key = 'q' + state.index;
     if (key !== lastQuestionKey) {
       lastQuestionKey = key;
+      renderSceneBg($('q-bg'), BIOMES[state.index % BIOMES.length]);
       $('q-num').textContent = 'ข้อ ' + q.number + ' / ' + q.total +
         (q.points === 2 ? '  •  คะแนนคูณ 2 ✨' : '');
       $('q-text').textContent = q.text;
@@ -477,6 +578,59 @@
     cv.style.display = 'none';
   }
 
+  // A first-person dash to the finish line, played once, full-screen, right
+  // before the podium appears - see the 'ended' case below. It owns the whole
+  // screen for its duration so celebrate() (the podium reveal) only starts
+  // once this is actually done, instead of both fighting for attention.
+  var goalRunTimers = [];
+  var goalRunFrameTimer = null;
+
+  function cancelGoalRun() {
+    for (var i = 0; i < goalRunTimers.length; i++) clearTimeout(goalRunTimers[i]);
+    goalRunTimers = [];
+    if (goalRunFrameTimer) { clearInterval(goalRunFrameTimer); goalRunFrameTimer = null; }
+    var el = $('goalrun');
+    if (el) el.classList.remove('show', 'banner');
+    var posts = $('gr-posts');
+    if (posts) posts.innerHTML = '';
+  }
+
+  function playGoalRun(onDone) {
+    var el = $('goalrun');
+    if (!el) { onDone(); return; }
+    cancelGoalRun();
+
+    var posts = $('gr-posts');
+    for (var i = 0; i < 14; i++) {
+      var p = document.createElement('div');
+      p.className = 'grpost';
+      var side = i % 2 === 0 ? -1 : 1;
+      p.style.setProperty('--fx', (side * (45 + Math.random() * 45)) + 'vw');
+      p.style.left = (48 + side * (2 + Math.random() * 4)) + '%';
+      p.style.animationDelay = (-(i * 0.08)) + 's';   // stagger so they don't all pop at once
+      posts.appendChild(p);
+    }
+
+    var runnerImg = $('gr-runner');
+    var frame = 1;
+    goalRunFrameTimer = setInterval(function () {
+      frame = frame === 1 ? 2 : 1;
+      runnerImg.src = 'img/characters/player_walk' + frame + '.png';
+    }, 110);
+
+    el.classList.add('show');
+    goalRunTimers.push(setTimeout(function () { el.classList.add('banner'); }, 1300));
+    goalRunTimers.push(setTimeout(function () {
+      el.classList.remove('show');
+      if (goalRunFrameTimer) { clearInterval(goalRunFrameTimer); goalRunFrameTimer = null; }
+      goalRunTimers.push(setTimeout(function () {
+        el.classList.remove('banner');
+        posts.innerHTML = '';
+      }, 450));
+      onDone();
+    }, 2350));
+  }
+
   // Sound and vision on the same clock: third at 0, second at 1.1s, the winner at
   // 2.2s with the fanfare and the confetti. The CSS delays match these numbers.
   var celebrationTimers = [];
@@ -495,6 +649,7 @@
     for (var i = 0; i < celebrationTimers.length; i++) clearTimeout(celebrationTimers[i]);
     celebrationTimers = [];
     stopConfetti();
+    cancelGoalRun();
   }
 
   var MEDAL = ['👑', '🥈', '🥉'];   // crown, silver, bronze
@@ -620,8 +775,15 @@
       }
       case 'ended': {
         var enteredEnd = view('end');
-        renderPodium(state.scoreboard.slice(0, 3), enteredEnd);
-        if (enteredEnd) celebrate();
+        if (enteredEnd) {
+          var top3 = state.scoreboard.slice(0, 3);
+          playGoalRun(function () {
+            renderPodium(top3, true);
+            celebrate();
+          });
+        } else {
+          renderPodium(state.scoreboard.slice(0, 3), false);
+        }
         break;
       }
       default:
