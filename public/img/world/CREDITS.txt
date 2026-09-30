@@ -1,4 +1,4 @@
 Background scenes: generated locally for this project with Stable Diffusion XL base 1.0
 (CreativeML Open RAIL++-M) + the "Pixel Art XL" LoRA by nerijs (CreativeML OpenRAIL-M),
-then snapped to a 168x96 pixel grid. See tools/scenes/ to regenerate
-(goal.png, the finale's first-person path, comes from tools/scenes/make_goal.py).
+re-painted at 4x (the second 2x in tiles) and snapped to a 672x384 pixel grid. See tools/scenes/ to regenerate.
+The guest characters are drawn in code (public/pixelfolk.js), no image files.

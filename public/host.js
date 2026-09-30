@@ -205,11 +205,12 @@
 
   /* ---------------- the world behind the screen ---------------- */
 
-  // The quiz walks through one day on the farm: questions are split into four
-  // equal stretches (morning, noon, sunset, night), so however many questions
-  // there are, the last one always lands at night - where the podium is.
+  // The quiz walks through the wedding day: ceremony in the morning, reception
+  // at noon, the cake gazebo at sunset, the party at night. Questions are split
+  // into four equal stretches, so however many questions there are, the last
+  // one always lands at night - where the podium is.
   var DAY = ['morning', 'noon', 'sunset', 'night'];
-  var SCENE_FX = { lobby: 'petals', morning: 'petals', noon: 'none', sunset: 'leaves', night: 'fireflies' };
+  var SCENE_FX = { lobby: 'petals', morning: 'petals', noon: 'none', sunset: 'petals', night: 'fireflies' };
   var currentScene = 'lobby';
 
   function sceneFor(s) {
@@ -249,15 +250,13 @@
     return location.origin;
   }
 
-  // Each guest becomes a little pixel character (one of 5 CC0 sprites from
-  // kenney.nl) running left to right across the lobby screen, forever, until
-  // the game starts. A cheap string hash on the player's own id picks their
-  // character/lane/speed deterministically, so the same guest always looks
-  // the same and a reconnect doesn't reshuffle anyone.
-  var CHARACTERS = ['adventurer', 'female', 'player', 'soldier', 'zombie'];
+  // Each guest becomes a little pixel wedding guest (pixelfolk.js) walking
+  // left to right across the lobby screen, forever, until the game starts. A
+  // cheap string hash on the player's own id picks their look/lane/speed
+  // deterministically, so the same guest always looks the same and a
+  // reconnect doesn't reshuffle anyone.
   var LANES = 6;
   var runnerNodes = {};        // player id -> element, kept alive across renders
-  var runnerFrameTimer = null;
 
   function hashId(id) {
     var h = 0;
@@ -265,20 +264,28 @@
     return Math.abs(h);
   }
 
+  // Sprites scale by whole pixels only, so every art pixel stays square.
+  function setPixelScale() {
+    document.documentElement.style.setProperty('--ps', Math.max(2, Math.floor(window.innerHeight / 320)));
+  }
+  setPixelScale();
+  window.addEventListener('resize', setPixelScale);
+
   function makeRunner(p) {
     var h = hashId(p.id);
     var el = document.createElement('div');
     el.className = 'runner';
-    el._char = CHARACTERS[h % CHARACTERS.length];
-    el._frame = 1;
-    el.style.top = (6 + (Math.floor(h / 8) % LANES) * (80 / LANES)) + '%';
-    el.style.animationDuration = (7 + (Math.floor(h / 64) % 6)) + 's';           // 7-12s per lap
+    var lane = Math.floor(h / 8) % LANES;
+    el.style.setProperty('--lane', lane / (LANES - 1));
+    el.style.zIndex = lane;                                                      // nearer lanes in front
+    el.style.animationDuration = (9 + (Math.floor(h / 64) % 6)) + 's';           // 9-14s per lap
     el.style.animationDelay = -((Math.floor(h / 1024) % 1000) / 100) + 's';      // starts mid-stride, not lined up
 
-    var img = document.createElement('img');
-    img.alt = '';
-    img.src = 'img/characters/' + el._char + '_walk1.png';
-    el.appendChild(img);
+    var sprite = document.createElement('div');
+    sprite.className = 'sprite';
+    sprite.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(h).toDataURL() + ')';
+    sprite.style.animationDelay = -((h % 7) / 10) + 's';                        // feet out of step with each other
+    el.appendChild(sprite);
 
     var tag = document.createElement('div');
     tag.className = 'tag';
@@ -293,21 +300,37 @@
     return el;
   }
 
-  // A shared, lightweight interval flips every runner between its two walk
-  // frames - one timer for the whole field instead of one per character.
-  function ensureRunnerFrameLoop() {
-    if (runnerFrameTimer) return;
-    runnerFrameTimer = setInterval(function () {
-      for (var id in runnerNodes) {
-        var el = runnerNodes[id];
-        el._frame = el._frame === 1 ? 2 : 1;
-        el.firstChild.src = 'img/characters/' + el._char + '_walk' + el._frame + '.png';
-      }
-    }, 220);
+  // The couple leads the parade in the front lane, a little slower than the
+  // guests - always there, even before anyone joins. Not a player: no kick.
+  var coupleNode = null;
+
+  function makeCouple() {
+    var el = document.createElement('div');
+    el.className = 'runner couple';
+    el.style.setProperty('--lane', 1);
+    el.style.zIndex = LANES + 1;
+    el.style.animationDuration = '18s';
+    el.style.animationDelay = '-6s';
+    var looks = [
+      { outfit: 'gown', color: ['#fbf7f0', '#e2dbcd'], style: 'bun', acc: 'veil', hair: 1, skin: 1 },
+      { outfit: 'suit', suit: 0, tie: 4, style: 'short', acc: 'none', hair: 1, skin: 1 }
+    ];
+    looks.forEach(function (look, i) {
+      var sprite = document.createElement('div');
+      sprite.className = 'sprite';
+      sprite.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(7 + i, look).toDataURL() + ')';
+      el.appendChild(sprite);
+    });
+    var tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.textContent = '💍 เจ้าสาว & เจ้าบ่าว';
+    el.appendChild(tag);
+    return el;
   }
 
   function renderField() {
     var field = $('field');
+    if (!coupleNode) { coupleNode = makeCouple(); field.appendChild(coupleNode); }
     var seen = {};
     state.players.forEach(function (p) {
       seen[p.id] = true;
@@ -323,7 +346,6 @@
     for (var id in runnerNodes) {
       if (!seen[id]) { runnerNodes[id].remove(); delete runnerNodes[id]; }
     }
-    ensureRunnerFrameLoop();
   }
 
   function renderLobby() {
@@ -531,7 +553,10 @@
     cv.style.display = 'block';
 
     var W = window.innerWidth, H = window.innerHeight;
-    var COLOURS = ['#e8c07a', '#f3d698', '#ffffff', '#e04b53', '#2b7fd4', '#2f9e6b', '#d9a326'];
+    // Pixel confetti: petal and gold chunks on the sprites' own pixel grid (P),
+    // tumbling by flipping between flat and tall rather than rotating smoothly.
+    var P = 2 * (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ps'), 10) || 3);
+    var COLOURS = ['#ffc4d6', '#f28bb0', '#fff6e8', '#f7d154', '#c8912a', '#c7b6e6', '#e0445a'];
     var bits = [];
     for (var i = 0; i < 160; i++) {
       bits.push({
@@ -539,10 +564,9 @@
         y: H + Math.random() * 120,
         vx: (Math.random() - 0.5) * 5.5,
         vy: -(9 + Math.random() * 9),
-        w: 7 + Math.random() * 9,
-        h: 10 + Math.random() * 14,
-        rot: Math.random() * Math.PI,
-        vr: (Math.random() - 0.5) * 0.3,
+        s: 1 + ((Math.random() * 2) | 0),
+        rot: Math.random() * 4,
+        vr: 0.08 + Math.random() * 0.14,
         c: COLOURS[(Math.random() * COLOURS.length) | 0]
       });
     }
@@ -557,13 +581,11 @@
         b.vy += 0.32;                 // gravity
         b.vx *= 0.995;
         b.x += b.vx; b.y += b.vy; b.rot += b.vr;
-        ctx.save();
-        ctx.translate(b.x, b.y);
-        ctx.rotate(b.rot);
+        var flip = Math.floor(b.rot) % 2;           // 0: flat, 1: tall
+        var w = P * (b.s + 1 - flip), h = P * (b.s + flip);
         ctx.fillStyle = b.c;
-        ctx.globalAlpha = Math.max(0, 1 - elapsed / durationMs);
-        ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
-        ctx.restore();
+        ctx.globalAlpha = elapsed < durationMs * 0.7 ? 1 : 0.5;   // stepped fade, no smooth alpha
+        ctx.fillRect(Math.round(b.x / P) * P, Math.round(b.y / P) * P, w, h);
       }
       if (elapsed < durationMs) { confettiRaf = requestAnimationFrame(step); }
       else { ctx.clearRect(0, 0, W, H); cv.style.display = 'none'; confettiRaf = null; }
@@ -602,7 +624,7 @@
     if (!el) { onDone(); return; }
     cancelGoalRun();
 
-    // Lantern sparks burst out of the vanishing point in every direction.
+    // Rose petals burst out of the vanishing point in every direction.
     var posts = $('gr-posts');
     for (var i = 0; i < 22; i++) {
       var p = document.createElement('div');
@@ -649,7 +671,24 @@
     cancelGoalRun();
   }
 
-  var MEDAL = ['👑', '🥈', '🥉'];   // crown, silver, bronze
+  // Pixel crown and medals, drawn like the guests (pixelfolk.js) instead of
+  // emoji, which looked like a phone UI pasted over the pixel world.
+  var CROWN = ['y....y....y', 'yy..yyy..yy', 'yyy.yyy.yyy', 'ywyyyyyyyyy', 'yryyyryyyry', 'yyyyyyyyyyy',
+               'YYYYYYYYYYY'];
+  var MEDAL = ['RR.....BB', '.RR...BB.', '..RR.BB..', '..mmmmm..', '.mwmmmmm.', '.mwmmmmM.', '.mmmmmmM.',
+               '.mmmmmMM.', '..MMMMM..'];
+  var MEDAL_ICONS = [
+    { grid: CROWN, c: { y: '#f7d154', Y: '#c8912a', w: '#fff6c8', r: '#e0445a' } },
+    { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d7dbe6', M: '#9a9fae', w: '#ffffff' } },
+    { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d58a4f', M: '#9c5a2c', w: '#f6c79a' } }
+  ];
+
+  // The podium figures are a size up from the field's walkers, still whole pixels.
+  function setPodiumScale() {
+    document.documentElement.style.setProperty('--pps', Math.max(3, Math.floor(window.innerHeight / 216)));
+  }
+  setPodiumScale();
+  window.addEventListener('resize', setPodiumScale);
 
   // animate=true only on the render that actually opens the end screen, so the
   // reveal plays once rather than restarting on any later broadcast.
@@ -662,19 +701,27 @@
       var d = document.createElement('div');
       d.className = 'pod p' + (i + 1) + (animate ? ' rise' : '');
 
-      var medal = document.createElement('div');
-      medal.className = 'medal';
-      medal.textContent = MEDAL[i];
-
       var nm = document.createElement('div');
       nm.className = 'nm';
-      nm.textContent = r.name + ' — ' + r.score.toLocaleString('th-TH');
+      var ic = MEDAL_ICONS[i];
+      var medal = document.createElement('img');
+      medal.className = 'medal';
+      medal.alt = '';
+      medal.src = window.PixelFolk.icon(ic.grid, ic.c).toDataURL();
+      medal.style.width = 'calc(' + (ic.grid[0].length + 2) + 'px * var(--pps))';
+      nm.appendChild(medal);
+      nm.appendChild(document.createTextNode(r.name + ' — ' + r.score.toLocaleString('th-TH')));
+
+      // The winner's own guest from the field, by the same id hash.
+      var who = document.createElement('div');
+      who.className = 'who';
+      who.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(hashId(r.id || r.name)).toDataURL() + ')';
 
       var blk = document.createElement('div');
       blk.className = 'blk';
       blk.textContent = i + 1;
 
-      d.appendChild(medal); d.appendChild(nm); d.appendChild(blk);
+      d.appendChild(nm); d.appendChild(who); d.appendChild(blk);
       pod.appendChild(d);
     });
   }
