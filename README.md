@@ -210,6 +210,27 @@ git add questions.seed.json && git commit -m "คำถามจริง" && gi
 
 ---
 
+## 🌾 ภาพพื้นหลังแบบพิกเซล
+
+จอใหญ่มีฉากพิกเซลเต็มจอ 5 ฉากใน `public/img/world/` (ไฟล์ละ ~20KB):
+
+| ช่วง | ฉาก |
+|---|---|
+| ห้องรอ | ซุ้มดอกไม้งานแต่งกลางฟาร์ม — แขกวิ่งผ่านซุ้มเข้ามา |
+| คำถาม | เดินผ่าน 1 วันในฟาร์ม: เช้า → กลางวัน → เย็น → กลางคืน (แบ่งตามจำนวนข้อ ข้อสุดท้ายเป็นกลางคืนเสมอ) |
+| จบเกม / โพเดียม | กลางคืน มีโคมลอยกับพระจันทร์ |
+
+ฉากสร้างเองบนเครื่อง (GPU) ด้วย ComfyUI + SDXL + LoRA "Pixel Art XL" แล้วย่อให้เป็นพิกเซลจริง 168×96
+— อยากทำฉากใหม่ ดูสคริปต์ที่ `tools/scenes/`:
+
+```bash
+# (ComfyUI ต้องเปิดอยู่ที่ 127.0.0.1:8188)
+C:\AI\ComfyUI_windows_portable\python_embeded\python.exe tools/scenes/make_scenes.py noon 3
+C:\AI\ComfyUI_windows_portable\python_embeded\python.exe tools/scenes/export.py noon=1
+```
+
+---
+
 ## 💻 ลองรันบนเครื่องตัวเองก่อน
 
 ต้องมี [Node.js](https://nodejs.org) 18 ขึ้นไป

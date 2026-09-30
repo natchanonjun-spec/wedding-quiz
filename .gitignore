@@ -7,3 +7,6 @@ data/
 
 # Local throwaway test drivers - never ship these (they hardcode the host password)
 *.scratch.js
+
+tools/scenes/out/
+tools/scenes/__pycache__/

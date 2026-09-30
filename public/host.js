@@ -203,40 +203,45 @@
     }
   });
 
-  /* ---------------- scene backdrops ---------------- */
+  /* ---------------- the world behind the screen ---------------- */
 
-  // One shared CC0 hills silhouette (kenney.nl), tinted + decorated per
-  // "biome" so the lobby and each question get a different backdrop without
-  // needing separate art for every one. Questions cycle through the list by
-  // index, so the same question always looks the same but the quiz visibly
-  // moves through a few different little worlds.
-  var BIOMES = ['meadow', 'autumn', 'snow', 'desert', 'kingdom'];
-  var BIOME_DECO = {
-    meadow: ['meadow_tree.png', 'meadow_pine.png', 'meadow_bush1.png', 'meadow_bush2.png'],
-    autumn: ['autumn_tree.png', 'autumn_tree2.png', 'autumn_bush1.png', 'autumn_bush2.png'],
-    snow: ['snow_tree.png', 'snow_pine.png', 'snow_frozen.png'],
-    desert: ['desert_pyramid.png', 'desert_cactus1.png', 'desert_cactus2.png'],
-    kingdom: ['kingdom_castle.png', 'kingdom_tower.png', 'kingdom_fence.png', 'kingdom_bush.png']
-  };
-  var DECO_LEFT = [6, 22, 78, 92, 38, 60];   // spread across the width, decor count varies per biome
+  // The quiz walks through one day on the farm: questions are split into four
+  // equal stretches (morning, noon, sunset, night), so however many questions
+  // there are, the last one always lands at night - where the podium is.
+  var DAY = ['morning', 'noon', 'sunset', 'night'];
+  var SCENE_FX = { lobby: 'petals', morning: 'petals', noon: 'none', sunset: 'leaves', night: 'fireflies' };
+  var currentScene = 'lobby';
 
-  function renderSceneBg(el, biome) {
-    if (!el) return;
-    el.className = 'scene-bg biome-' + biome;
-    el.innerHTML = '<div class="sky"></div><div class="hills"></div>';
-    var deco = BIOME_DECO[biome] || BIOME_DECO.meadow;
-    for (var i = 0; i < deco.length; i++) {
-      var img = document.createElement('img');
-      img.className = 'deco';
-      img.alt = '';
-      img.src = 'img/bg/' + deco[i];
-      img.style.left = DECO_LEFT[i % DECO_LEFT.length] + '%';
-      img.style.height = (i % 2 === 0 ? 32 : 24) + '%';
-      el.appendChild(img);
-    }
+  function sceneFor(s) {
+    if (!s || s.phase === 'lobby') return 'lobby';
+    if (s.phase === 'ended') return 'night';
+    var total = Math.max(1, s.questionCount || 1);
+    return DAY[Math.min(DAY.length - 1, Math.floor((s.index || 0) * DAY.length / total))];
   }
 
-  renderSceneBg($('field-bg'), 'meadow');   // the field's backdrop never changes, so paint it once
+  function setScene(key) {
+    if (key === currentScene) return;
+    currentScene = key;
+    var scenes = document.querySelectorAll('#world .scene');
+    for (var i = 0; i < scenes.length; i++) {
+      scenes[i].classList.toggle('on', scenes[i].getAttribute('data-k') === key);
+    }
+    $('world').setAttribute('data-fx', SCENE_FX[key] || 'none');
+  }
+
+  // One fixed handful of particles, restyled per scene by CSS - never rebuilt.
+  (function seedParticles() {
+    var fx = $('fx');
+    for (var i = 0; i < 16; i++) {
+      var p = document.createElement('i');
+      p.style.left = (Math.random() * 100) + '%';
+      p.style.bottom = (8 + Math.random() * 45) + '%';     // only used by floating fireflies
+      p.style.setProperty('--dx', (Math.random() * 16 - 4) + 'vw');
+      p.style.animationDuration = (9 + Math.random() * 9) + 's';
+      p.style.animationDelay = -(Math.random() * 18) + 's';
+      fx.appendChild(p);
+    }
+  })();
 
   /* ---------------- lobby ---------------- */
 
@@ -348,7 +353,6 @@
     var key = 'q' + state.index;
     if (key !== lastQuestionKey) {
       lastQuestionKey = key;
-      renderSceneBg($('q-bg'), BIOMES[state.index % BIOMES.length]);
       $('q-num').textContent = 'ข้อ ' + q.number + ' / ' + q.total +
         (q.points === 2 ? '  •  คะแนนคูณ 2 ✨' : '');
       $('q-text').textContent = q.text;
@@ -746,6 +750,8 @@
       ? 'จบเกม 🏁' : 'ถัดไป →';
 
     if (state.phase !== 'question' && raf) { cancelAnimationFrame(raf); raf = null; $('clock').style.display = 'none'; }
+
+    setScene(sceneFor(state));
 
     switch (state.phase) {
       case 'lobby':
