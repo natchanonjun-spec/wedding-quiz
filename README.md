@@ -218,7 +218,8 @@ git add questions.seed.json && git commit -m "คำถามจริง" && gi
 |---|---|
 | ห้องรอ | ซุ้มดอกไม้งานแต่งกลางฟาร์ม — แขกวิ่งผ่านซุ้มเข้ามา |
 | คำถาม | เดินผ่าน 1 วันในฟาร์ม: เช้า → กลางวัน → เย็น → กลางคืน (แบ่งตามจำนวนข้อ ข้อสุดท้ายเป็นกลางคืนเสมอ) |
-| จบเกม / โพเดียม | กลางคืน มีโคมลอยกับพระจันทร์ |
+| จบเกม | วิ่งมุมมองบุคคลที่หนึ่งไปตามทางในฟาร์มตอนกลางคืน เข้าซุ้มเส้นชัย → **GOAL!** → แฟลช |
+| โพเดียม | กลางคืน มีโคมลอยกับพระจันทร์ |
 
 ฉากสร้างเองบนเครื่อง (GPU) ด้วย ComfyUI + SDXL + LoRA "Pixel Art XL" แล้วย่อให้เป็นพิกเซลจริง 168×96
 — อยากทำฉากใหม่ ดูสคริปต์ที่ `tools/scenes/`:
@@ -228,6 +229,9 @@ git add questions.seed.json && git commit -m "คำถามจริง" && gi
 C:\AI\ComfyUI_windows_portable\python_embeded\python.exe tools/scenes/make_scenes.py noon 3
 C:\AI\ComfyUI_windows_portable\python_embeded\python.exe tools/scenes/export.py noon=1
 ```
+
+ฉากวิ่งเข้าเส้นชัยสร้างด้วย `tools/scenes/make_goal.py` — ถ้าเปลี่ยนรูป `goal.png` ต้องวัดตำแหน่งซุ้มใหม่
+แล้วแก้ `--vx` / `--vy` ใน `.goalrun` (host.html) ให้กล้องซูมเข้าตรงซุ้ม
 
 ---
 

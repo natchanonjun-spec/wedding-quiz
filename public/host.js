@@ -587,14 +587,12 @@
   // screen for its duration so celebrate() (the podium reveal) only starts
   // once this is actually done, instead of both fighting for attention.
   var goalRunTimers = [];
-  var goalRunFrameTimer = null;
 
   function cancelGoalRun() {
     for (var i = 0; i < goalRunTimers.length; i++) clearTimeout(goalRunTimers[i]);
     goalRunTimers = [];
-    if (goalRunFrameTimer) { clearInterval(goalRunFrameTimer); goalRunFrameTimer = null; }
     var el = $('goalrun');
-    if (el) el.classList.remove('show', 'banner');
+    if (el) el.classList.remove('show', 'banner', 'flash');
     var posts = $('gr-posts');
     if (posts) posts.innerHTML = '';
   }
@@ -604,31 +602,26 @@
     if (!el) { onDone(); return; }
     cancelGoalRun();
 
+    // Lantern sparks burst out of the vanishing point in every direction.
     var posts = $('gr-posts');
-    for (var i = 0; i < 14; i++) {
+    for (var i = 0; i < 22; i++) {
       var p = document.createElement('div');
       p.className = 'grpost';
-      var side = i % 2 === 0 ? -1 : 1;
-      p.style.setProperty('--fx', (side * (45 + Math.random() * 45)) + 'vw');
-      p.style.left = (48 + side * (2 + Math.random() * 4)) + '%';
-      p.style.animationDelay = (-(i * 0.08)) + 's';   // stagger so they don't all pop at once
+      var a = (i / 22) * Math.PI * 2 + Math.random() * 0.3;
+      var dist = 70 + Math.random() * 40;                // vmax, far enough to leave the screen
+      p.style.setProperty('--fx', (Math.cos(a) * dist) + 'vmax');
+      p.style.setProperty('--fy', (Math.sin(a) * dist * 0.7) + 'vmax');
+      p.style.animationDelay = -(Math.random() * 0.9) + 's';
       posts.appendChild(p);
     }
 
-    var runnerImg = $('gr-runner');
-    var frame = 1;
-    goalRunFrameTimer = setInterval(function () {
-      frame = frame === 1 ? 2 : 1;
-      runnerImg.src = 'img/characters/player_walk' + frame + '.png';
-    }, 110);
-
     el.classList.add('show');
-    goalRunTimers.push(setTimeout(function () { el.classList.add('banner'); }, 1300));
+    goalRunTimers.push(setTimeout(function () { el.classList.add('banner'); }, 1200));
+    goalRunTimers.push(setTimeout(function () { el.classList.add('flash'); }, 2050));
     goalRunTimers.push(setTimeout(function () {
       el.classList.remove('show');
-      if (goalRunFrameTimer) { clearInterval(goalRunFrameTimer); goalRunFrameTimer = null; }
       goalRunTimers.push(setTimeout(function () {
-        el.classList.remove('banner');
+        el.classList.remove('banner', 'flash');
         posts.innerHTML = '';
       }, 450));
       onDone();
