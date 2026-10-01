@@ -24,7 +24,9 @@ const MAX_PLAYERS = Number(process.env.MAX_PLAYERS || 300);
 // surviving a restart. Set LOCK_QUESTIONS=1 in production.
 const LOCK_QUESTIONS = /^(1|true|yes)$/i.test(process.env.LOCK_QUESTIONS || '');
 
-const READY_MS = 3000;    // "get ready" countdown before the answers appear
+// Before the answers appear: 3s with only the new background on the projector
+// (the scene change gets its moment), then the question and a 3-2-1 countdown.
+const READY_MS = 6000;
 const GRACE_MS = 400;     // slack for network latency at the end of a question
 const STREAK_BONUS = 100; // extra points per consecutive correct answer
 const STREAK_CAP = 500;

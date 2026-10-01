@@ -51,7 +51,7 @@
      wedding day and the couple's own places (see DAY in host.js) - and the podium is at night. */
   #world { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;
            background:#1d0f33; }
-  #world .scene { position:absolute; inset:0; opacity:0; transition:opacity 1.4s ease;
+  #world .scene { position:absolute; inset:0; opacity:0; transition:opacity 1.4s ease, filter .6s ease, transform .6s ease;
                   background-size:cover; background-position:center bottom;
                   image-rendering:pixelated; }
   #world .scene.on { opacity:1; }
@@ -66,7 +66,13 @@
   #world .scene[data-k="beach"]   { background-image:url(img/world/beach.png); }
   #world .scene[data-k="goldenmount"] { background-image:url(img/world/goldenmount.png); }
   #world .scene[data-k="city"]    { background-image:url(img/world/city.png); }
-  body > .wrap { position:relative; z-index:1; }
+  body > .wrap { position:relative; z-index:1; transition:opacity .5s ease; }
+  /* Each question opens with 3s of just the new scene (body.scenic, set by
+     host.js from the server's ready window); then the question (and later its
+     reveal) comes in and the scene goes soft and ~25% darker behind it (#world.dim) so the text
+     stands off it. Slightly scaled so the blur never shows a faded edge. */
+  body.scenic > .wrap { opacity:0; pointer-events:none; }
+  #world.dim .scene.on { filter:blur(0.45vh) brightness(.75); transform:scale(1.03); }
 
   /* Ambient particles, one small set reused for every scene: petals by day,
      fireflies at night. Square, unblurred - pixels, not glows. */

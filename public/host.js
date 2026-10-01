@@ -405,6 +405,7 @@
 
   var answersOpenCued = false;
   var timeUpCued = false;
+  var COUNTDOWN_MS = 3000;   // the 3-2-1 at the end of the server's READY_MS; before it, scene only
 
   var lastClockDigit = null;
 
@@ -427,7 +428,16 @@
       if (!state || state.phase !== 'question') { $('clock').style.display = 'none'; return; }
       var t = now();
       $('clock').style.display = '';
-      if (t < state.startsAt) {
+      // Beyond the last 3s of the ready window, only the background shows
+      // (body.scenic); from the question's arrival on, the scene is blurred
+      // behind it (#world.dim) so the text reads clearly.
+      var scenic = t < state.startsAt - COUNTDOWN_MS;
+      document.body.classList.toggle('scenic', scenic);
+      $('world').classList.toggle('dim', !scenic);
+      if (scenic) {
+        $('q-answers').style.visibility = 'hidden';
+        $('q-bar').style.width = '100%';
+      } else if (t < state.startsAt) {
         var readyLeft = Math.max(1, Math.ceil((state.startsAt - t) / 1000));
         $('clock').textContent = String(readyLeft);
         bumpClock('r' + readyLeft);
@@ -793,6 +803,11 @@
       ? 'จบเกม 🏁' : 'ถัดไป →';
 
     if (state.phase !== 'question' && raf) { cancelAnimationFrame(raf); raf = null; $('clock').style.display = 'none'; }
+    // The reveal repeats the question over the scene, so it stays blurred too.
+    if (state.phase !== 'question') {
+      document.body.classList.remove('scenic');
+      $('world').classList.toggle('dim', state.phase === 'reveal');
+    }
 
     setScene(sceneFor(state));
 

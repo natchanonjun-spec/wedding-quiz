@@ -265,9 +265,13 @@
         $('q-ready').style.display = '';
         $('q-answers').style.display = 'none';
         var digit = Math.max(1, Math.ceil((state.startsAt - t) / 1000));
-        if (digit !== lastReadyDigit) {
-          lastReadyDigit = digit;
-          $('q-count').textContent = String(digit);
+        // The first 3s of the ready window the projector shows only the new
+        // scene, so the phone points everyone at it instead of counting 6, 5, 4.
+        var look = digit > 3;
+        if ((look ? 'look' : digit) !== lastReadyDigit) {
+          lastReadyDigit = look ? 'look' : digit;
+          $('q-count').textContent = look ? '👀' : String(digit);
+          $('q-ready-hint').textContent = look ? 'ดูจอใหญ่…' : 'เตรียมตัว…';
           bounce($('q-count'));   // 3, 2, 1 should each land with a beat, not just swap
         }
         $('q-bar').style.width = '100%';
