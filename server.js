@@ -72,8 +72,13 @@ function normaliseQuestion(raw, i) {
     .slice(0, 4);
   while (options.length < 2) options.push('');
 
-  let correct = Number(src.correct);
-  if (!Number.isInteger(correct) || correct < 0 || correct >= options.length) correct = 0;
+  // One right answer (a number), or several ([0, 2]) - e.g. a trick question
+  // where every choice scores. A single one stays a plain number, as before.
+  const valid = (n) => Number.isInteger(n) && n >= 0 && n < options.length;
+  let correct = Array.isArray(src.correct)
+    ? [...new Set(src.correct.map(Number).filter(valid))].sort((a, b) => a - b)
+    : [Number(src.correct)].filter(valid);
+  correct = correct.length === 0 ? 0 : correct.length === 1 ? correct[0] : correct;
 
   let timeLimit = Number(src.timeLimit);
   if (!Number.isFinite(timeLimit)) timeLimit = 20;
@@ -681,7 +686,7 @@ io.on('connection', (socket) => {
     }
 
     const elapsed = Math.max(0, now - game.startsAt);
-    const correct = choice === q.correct;
+    const correct = [].concat(q.correct).includes(choice);
     game.answers.set(player.id, {
       choice,
       at: now,

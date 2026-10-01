@@ -475,14 +475,15 @@
     box.innerHTML = '';
     box.className = 'bars' + (r.options.length <= 2 ? ' two' : '');
     var fills = [];
+    var right = [].concat(r.correct);   // one answer, or several on a trick question
     r.options.forEach(function (text, i) {
       var bar = document.createElement('div');
-      bar.className = 'bar' + (i === r.correct ? '' : ' wrong');
+      bar.className = 'bar' + (right.indexOf(i) >= 0 ? '' : ' wrong');
       bar.dataset.a = i;
 
       var tick = document.createElement('div');
       tick.className = 'tick';
-      tick.textContent = i === r.correct ? '✔' : '';
+      tick.textContent = right.indexOf(i) >= 0 ? '✔' : '';
 
       var n = document.createElement('div');
       n.className = 'n';
@@ -506,7 +507,7 @@
                                 // something to grow from, instead of jumping straight up
       fills.forEach(function (f) { f.el.style.height = f.pct + '%'; });
     }
-    var correctCount = r.counts[r.correct] || 0;
+    var correctCount = right.reduce(function (n, i) { return n + (r.counts[i] || 0); }, 0);
     $('rv-sub').textContent = 'ตอบถูก ' + correctCount + ' คน' +
       (r.noAnswer ? '  •  ไม่ได้ตอบ ' + r.noAnswer + ' คน' : '');
   }

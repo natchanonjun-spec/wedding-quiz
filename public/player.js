@@ -358,7 +358,8 @@
           sub = '+' + r.gained.toLocaleString('th-TH') + ' คะแนน';
           if (r.bonus) sub += '  (โบนัสตอบถูกติดกัน +' + r.bonus + ')';
         } else if (state.reveal) {
-          sub = 'คำตอบที่ถูกคือ: ' + state.reveal.options[state.reveal.correct];
+          sub = 'คำตอบที่ถูกคือ: ' + [].concat(state.reveal.correct)
+            .map(function (i) { return state.reveal.options[i]; }).join(' / ');
         }
         $('rv-sub').textContent = sub;
         $('rv-rank').textContent = 'อันดับ ' + you.rank + ' จาก ' + state.playerCount;

@@ -32,7 +32,8 @@
     return {
       text: String(q.text || ''),
       options: (Array.isArray(q.options) ? q.options : ['', '']).slice(0, 4).map(String),
-      correct: Number(q.correct) || 0,
+      // A number, or a list when several answers are right.
+      correct: Array.isArray(q.correct) ? q.correct.map(Number) : (Number(q.correct) || 0),
       timeLimit: Number(q.timeLimit) || 20,
       points: Number(q.points) === 2 ? 2 : 1,
       image: typeof q.image === 'string' && q.image ? q.image : null,
@@ -296,12 +297,19 @@
         var row = document.createElement('div');
         row.className = 'opt';
 
+        // Checkboxes: tick more than one for a question where several answers score.
         var radio = document.createElement('input');
-        radio.type = 'radio';
-        radio.name = 'correct-' + qi;
-        radio.checked = q.correct === oi;
-        radio.title = 'คำตอบที่ถูก';
-        radio.addEventListener('change', function () { q.correct = oi; markDirty(); });
+        radio.type = 'checkbox';
+        radio.checked = [].concat(q.correct).indexOf(oi) >= 0;
+        radio.title = 'คำตอบที่ถูก (เลือกได้มากกว่า 1)';
+        radio.addEventListener('change', function () {
+          var set = [].concat(q.correct).filter(function (i) { return i !== oi; });
+          if (radio.checked) set.push(oi);
+          if (!set.length) { radio.checked = true; return; }   // always at least one right answer
+          set.sort(function (a, b) { return a - b; });
+          q.correct = set.length === 1 ? set[0] : set;
+          markDirty();
+        });
         row.appendChild(radio);
 
         var sw = document.createElement('span');
@@ -325,8 +333,9 @@
         rm.disabled = q.options.length <= 2;
         rm.addEventListener('click', function () {
           q.options.splice(oi, 1);
-          if (q.correct >= q.options.length) q.correct = 0;
-          else if (q.correct > oi) q.correct -= 1;
+          var set = [].concat(q.correct).filter(function (i) { return i !== oi; })
+            .map(function (i) { return i > oi ? i - 1 : i; });
+          q.correct = !set.length ? 0 : set.length === 1 ? set[0] : set;
           markDirty();
           render();
         });
