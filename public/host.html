@@ -48,18 +48,24 @@
      see README) and re-painted at 4x (2x, then 2x again in tiles) and snapped to a real 672x384 pixel grid, scaled up with
      nearest-neighbour so every pixel stays crisp. host.js cross-fades between
      them: the lobby is the wedding arch, then the quiz walks through the
-     wedding day - ceremony, reception, wine-glass gazebo, night party - and the podium is at night. */
+     wedding day and the couple's own places (see DAY in host.js) - and the podium is at night. */
   #world { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;
            background:#1d0f33; }
   #world .scene { position:absolute; inset:0; opacity:0; transition:opacity 1.4s ease;
                   background-size:cover; background-position:center bottom;
                   image-rendering:pixelated; }
   #world .scene.on { opacity:1; }
-  #world .scene[data-k="lobby"]   { background-image:url(img/world/lobby.png); }
+  #world .scene[data-k="lobby"]   { background-image:url(img/world/restaurant.png); }   /* supplied by the couple */
   #world .scene[data-k="morning"] { background-image:url(img/world/morning.png); }
   #world .scene[data-k="noon"]    { background-image:url(img/world/noon.png); }
   #world .scene[data-k="sunset"]  { background-image:url(img/world/sunset.png); }
   #world .scene[data-k="night"]   { background-image:url(img/world/night.png); }
+  /* Hand-made pixel art added by the couple, stored at its native pixel size. */
+  #world .scene[data-k="sea"]     { background-image:url(img/world/sea.png); }
+  #world .scene[data-k="valley"]  { background-image:url(img/world/valley.png); }
+  #world .scene[data-k="beach"]   { background-image:url(img/world/beach.png); }
+  #world .scene[data-k="goldenmount"] { background-image:url(img/world/goldenmount.png); }
+  #world .scene[data-k="city"]    { background-image:url(img/world/city.png); }
   body > .wrap { position:relative; z-index:1; }
 
   /* Ambient particles, one small set reused for every scene: petals by day,
@@ -318,8 +324,13 @@
 <div id="world" data-fx="petals">
   <div class="scene on" data-k="lobby"></div>
   <div class="scene" data-k="morning"></div>
+  <div class="scene" data-k="sea"></div>
   <div class="scene" data-k="noon"></div>
+  <div class="scene" data-k="valley"></div>
   <div class="scene" data-k="sunset"></div>
+  <div class="scene" data-k="beach"></div>
+  <div class="scene" data-k="goldenmount"></div>
+  <div class="scene" data-k="city"></div>
   <div class="scene" data-k="night"></div>
   <div id="fx"></div>
 </div>

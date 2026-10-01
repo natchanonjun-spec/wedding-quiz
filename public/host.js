@@ -205,18 +205,21 @@
 
   /* ---------------- the world behind the screen ---------------- */
 
-  // The quiz walks through the wedding day: ceremony in the morning, reception
-  // at noon, the cake gazebo at sunset, the party at night. Questions are split
-  // into four equal stretches, so however many questions there are, the last
-  // one always lands at night - where the podium is.
-  var DAY = ['morning', 'noon', 'sunset', 'night'];
-  var SCENE_FX = { lobby: 'petals', morning: 'petals', noon: 'none', sunset: 'petals', night: 'fireflies' };
+  // The couple's chosen order: the lobby is the Thong Smith restaurant at night,
+  // then one scene per question - valley, reception, beach, wine gazebo, Golden
+  // Mount, wedding ceremony, sea. Questions are split into equal stretches
+  // over this list (with 7 questions, one scene each). The final leaderboard is
+  // the city at night, and the podium is the night party.
+  var DAY = ['valley', 'noon', 'beach', 'sunset', 'goldenmount', 'morning', 'sea'];
+  var SCENE_FX = { lobby: 'fireflies', morning: 'petals', sea: 'none', noon: 'none', valley: 'none',
+                   sunset: 'petals', beach: 'none', goldenmount: 'none', city: 'none', night: 'fireflies' };
   var currentScene = 'lobby';
 
   function sceneFor(s) {
     if (!s || s.phase === 'lobby') return 'lobby';
     if (s.phase === 'ended') return 'night';
     var total = Math.max(1, s.questionCount || 1);
+    if (s.phase === 'scoreboard' && (s.index || 0) >= total - 1) return 'city';
     return DAY[Math.min(DAY.length - 1, Math.floor((s.index || 0) * DAY.length / total))];
   }
 

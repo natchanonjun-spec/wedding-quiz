@@ -1,4 +1,6 @@
 Background scenes: generated locally for this project with Stable Diffusion XL base 1.0
 (CreativeML Open RAIL++-M) + the "Pixel Art XL" LoRA by nerijs (CreativeML OpenRAIL-M),
 re-painted at 4x (the second 2x in tiles) and snapped to a 672x384 pixel grid. See tools/scenes/ to regenerate.
+restaurant.png, goldenmount.png, sea.png, valley.png, beach.png, city.png: pixel art supplied by the couple,
+stored at native size (restaurant/goldenmount/city/beach 480x270, the rest 384x216).
 The guest characters are drawn in code (public/pixelfolk.js), no image files.
