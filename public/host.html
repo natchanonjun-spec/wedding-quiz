@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>จอใหญ่ — Wedding Quiz</title>
+<title>จอใหญ่ | Wedding Quiz</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <style>
@@ -208,6 +208,8 @@
   .pod .nm { font-size:clamp(20px,1.9vw,32px); font-weight:900; margin-bottom:4px;
              max-width:clamp(200px,18vw,340px); word-break:normal; overflow-wrap:break-word; }
   .pod .medal { height:auto; image-rendering:pixelated; vertical-align:middle; margin:-6px 8px -4px 0; }
+  .pod .nm .sc { display:block; margin-top:6px; font-family:'Press Start 2P', monospace; font-weight:400;
+                 font-size:clamp(12px, 1vw, 18px); color:var(--gold-soft); }
   .pod .who { width:calc(18px * var(--pps)); height:calc(35px * var(--pps)); margin-bottom:calc(-1px * var(--pps));
               background-size:400% 100%; background-repeat:no-repeat; image-rendering:pixelated;
               animation:podIdle 1.1s steps(1) infinite; }
@@ -376,7 +378,7 @@
       <div class="pin-hero">
         <div class="center panel">
           <div class="hint" style="font-size:20px">เข้าเว็บนี้ในมือถือ</div>
-          <div class="url" id="join-url">—</div>
+          <div class="url" id="join-url"></div>
           <div style="height:18px"></div>
           <div class="hint" style="font-size:20px">แล้วใส่ PIN</div>
           <div class="pin-num" id="pin">------</div>

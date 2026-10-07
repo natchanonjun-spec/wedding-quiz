@@ -1,4 +1,4 @@
-/* Wedding Quiz — guest (phone) client */
+/* Wedding Quiz: guest (phone) client */
 (function () {
   'use strict';
 
@@ -33,6 +33,42 @@
     void el.offsetWidth;               // force a reflow so the animation restarts
     el.classList.add('pop');
   }
+
+  // The guest's own character (the one walking on the projector for them, from
+  // the same id hash), and the pixel icons, are drawn once and reused.
+  var sheetUrl = null, sheetFor = null, iconUrls = {};
+  function paintMe(id) {
+    if (!window.PixelFolk || !id) return;
+    if (sheetFor !== id) {
+      sheetFor = id;
+      sheetUrl = 'url(' + window.PixelFolk.makeSheet(window.PixelFolk.hashId(id)).toDataURL() + ')';
+    }
+    ['lobby-sprite', 'board-sprite', 'end-sprite'].forEach(function (el) { $(el).style.backgroundImage = sheetUrl; });
+  }
+  function iconUrl(name) {
+    if (!iconUrls[name] && window.PixelFolk) iconUrls[name] = window.PixelFolk.namedIcon(name).toDataURL();
+    return iconUrls[name] || '';
+  }
+  // One answer as a coloured block with its shape, the same as its button.
+  function fillChip(el, i, text) {
+    el.innerHTML = '';
+    el.dataset.a = i;
+    var sh = document.createElement('span');
+    sh.className = 'shape';
+    sh.dataset.s = i;
+    var t = document.createElement('span');
+    t.textContent = text;
+    el.appendChild(sh); el.appendChild(t);
+  }
+  (function drawCouple() {
+    if (!window.PixelFolk) return;
+    window.PixelFolk.coupleSheets().forEach(function (sheet) {
+      var d = document.createElement('div');
+      d.className = 'sprite';
+      d.style.backgroundImage = 'url(' + sheet.toDataURL() + ')';
+      $('join-couple').appendChild(d);
+    });
+  })();
 
   // Counts a guest's own score up to its new total instead of jumping straight there -
   // this is the "your score is climbing" moment right after an answer is scored.
@@ -70,10 +106,21 @@
   var ERRORS = {
     'bad-pin': 'PIN ไม่ถูกต้อง ลองดูบนจอใหญ่อีกครั้งนะ',
     'bad-name': 'ใส่ชื่อเล่นด้วยนะ',
-    'locked': 'เกมเริ่มไปแล้ว ตอนนี้เข้าร่วมไม่ได้ — ลองบอกเจ้าภาพให้เปิดรับผู้เล่นนะ',
+    'locked': 'เกมเริ่มไปแล้ว ตอนนี้เข้าร่วมไม่ได้ ลองบอกเจ้าภาพให้เปิดรับผู้เล่นนะ',
     'full': 'ผู้เล่นเต็มแล้ว',
-    'timeout': '⚠️ เซิร์ฟเวอร์ไม่ตอบ ลองกดเข้าร่วมอีกครั้ง',
+    'timeout': 'เซิร์ฟเวอร์ไม่ตอบ ลองกดเข้าร่วมอีกครั้ง',
   };
+  var ERROR_FIELD = { 'bad-pin': 'pin', 'bad-name': 'name' };
+
+  // The message sits under the button; the field it is about turns red too.
+  function setJoinError(msg, field) {
+    $('join-err').textContent = msg || '';
+    $('in-pin').setAttribute('aria-invalid', field === 'pin' ? 'true' : 'false');
+    $('in-name').setAttribute('aria-invalid', field === 'name' ? 'true' : 'false');
+  }
+  ['in-pin', 'in-name'].forEach(function (id) {
+    $(id).addEventListener('input', function () { $(id).setAttribute('aria-invalid', 'false'); });
+  });
 
   // done(null) on success, done(errorCode) on any failure including "never answered".
   function attemptJoin(payload, done) {
@@ -96,7 +143,7 @@
         me.name = res.name;
         joined = true;
         save();
-        $('join-err').textContent = '';
+        setJoinError('');
         if (done) done(null);
       } else if (done) {
         done((res && res.error) || 'error');
@@ -118,11 +165,11 @@
     if (joinPending) return;
     var pin = $('in-pin').value.replace(/\D/g, '');
     var name = $('in-name').value.trim();
-    if (!pin) { $('join-err').textContent = 'ใส่ PIN ก่อนนะ'; return; }
-    if (!name) { $('join-err').textContent = 'ใส่ชื่อเล่นด้วยนะ'; return; }
+    if (!pin) { setJoinError('ใส่ PIN ก่อนนะ', 'pin'); return; }
+    if (!name) { setJoinError('ใส่ชื่อเล่นด้วยนะ', 'name'); return; }
 
     if (!socket.connected) {
-      $('join-err').textContent = 'ยังเชื่อมต่อไม่ได้ — รอสักครู่แล้วลองใหม่';
+      setJoinError('ยังเชื่อมต่อไม่ได้ รอสักครู่แล้วลองใหม่');
       socket.connect();
       return;
     }
@@ -130,7 +177,7 @@
     joinPending = true;
     $('btn-join').disabled = true;
     $('btn-join').textContent = 'กำลังเข้าร่วม…';
-    $('join-err').textContent = '';
+    setJoinError('');
 
     // Send the id we already hold (from a previous attempt or a restored session) so
     // a retry resumes that guest instead of minting a second one for the same person.
@@ -140,7 +187,7 @@
     attemptJoin({ pin: pin, name: name, playerId: knownId }, function (err) {
       $('btn-join').textContent = 'เข้าร่วมเกม';
       $('btn-join').disabled = !socket.connected;
-      if (err) $('join-err').textContent = ERRORS[err] || 'เข้าร่วมไม่สำเร็จ ลองใหม่อีกครั้ง';
+      if (err) setJoinError(ERRORS[err] || 'เข้าร่วมไม่สำเร็จ ลองใหม่อีกครั้ง', ERROR_FIELD[err]);
     });
   });
 
@@ -197,7 +244,7 @@
     var buttons = document.querySelectorAll('#q-answers .answer');
 
     if (!socket.connected) {
-      $('q-note').textContent = '⚠️ เน็ตหลุดอยู่ — กำลังต่อใหม่ แล้วแตะอีกครั้งนะ';
+      $('q-note').textContent = 'เน็ตหลุดอยู่ กำลังต่อใหม่ แล้วแตะอีกครั้งนะ';
       return;
     }
 
@@ -211,7 +258,7 @@
       settled = true;
       answerPending = false;
       clearChoice(buttons);
-      $('q-note').textContent = '⚠️ ส่งไม่สำเร็จ แตะเลือกใหม่อีกครั้งนะ';
+      $('q-note').textContent = 'ส่งไม่สำเร็จ แตะเลือกใหม่อีกครั้งนะ';
     }, ANSWER_TIMEOUT_MS);
 
     socket.emit('player:answer', { choice: choice }, function (res) {
@@ -220,7 +267,13 @@
       clearTimeout(giveUp);
       answerPending = false;
 
-      if (res && res.ok) { $('sent-note').textContent = ''; show('s-sent'); return; }
+      var opts = (state && state.question && state.question.options) || [];
+      if (res && res.ok) {
+        $('sent-note').textContent = '';
+        fillChip($('sent-choice'), choice, opts[choice] || '');
+        show('s-sent');
+        return;
+      }
 
       // "already" means an earlier send DID land and only its ack went missing.
       // Only that first choice counts, so if this tap was for a different option we
@@ -228,10 +281,11 @@
       if (res && res.error === 'already') {
         $('q-note').textContent = '';
         var locked = res.choice;
+        var kept = typeof locked === 'number' ? locked : choice;
+        fillChip($('sent-choice'), kept, opts[kept] || '');
         if (typeof locked === 'number' && locked !== choice) {
           clearChoice(buttons);
           markChoice(buttons, locked);
-          var opts = (state && state.question && state.question.options) || [];
           $('sent-note').textContent = 'คำตอบที่บันทึกไว้คือ "' + (opts[locked] || '') +
             '" (คำตอบแรกที่ส่งถึงเท่านั้นที่นับ)';
         } else {
@@ -245,7 +299,7 @@
       if (res && res.error === 'too-late') {
         $('q-note').textContent = 'หมดเวลาพอดี! ไปข้อต่อไปกันเลย';
       } else {
-        $('q-note').textContent = '⚠️ ส่งไม่สำเร็จ แตะเลือกใหม่อีกครั้งนะ';
+        $('q-note').textContent = 'ส่งไม่สำเร็จ แตะเลือกใหม่อีกครั้งนะ';
       }
     });
   }
@@ -270,8 +324,9 @@
         var look = digit > 3;
         if ((look ? 'look' : digit) !== lastReadyDigit) {
           lastReadyDigit = look ? 'look' : digit;
-          $('q-count').textContent = look ? '👀' : String(digit);
-          $('q-ready-hint').textContent = look ? 'ดูจอใหญ่…' : 'เตรียมตัว…';
+          $('q-count').textContent = look ? '' : String(digit);
+          $('q-ready').classList.toggle('look', look);
+          $('q-ready-hint').textContent = look ? 'ดูจอใหญ่ก่อนนะ' : 'เตรียมตัว…';
           bounce($('q-count'));   // 3, 2, 1 should each land with a beat, not just swap
         }
         $('q-bar').style.width = '100%';
@@ -282,7 +337,7 @@
         var left = Math.max(0, state.endsAt - t);
         $('q-bar').style.width = (total > 0 ? (left / total) * 100 : 0) + '%';
         if (left <= 0 && !state.hasAnswered) {
-          $('q-note').textContent = 'หมดเวลาแล้ว ⏰';
+          $('q-note').textContent = 'หมดเวลาแล้ว';
           var bs = document.querySelectorAll('#q-answers .answer');
           for (var i = 0; i < bs.length; i++) bs[i].disabled = true;
         }
@@ -312,6 +367,7 @@
     }
 
     var you = state.you;
+    paintMe(you.id);
     $('q-name').textContent = you.name;
     $('q-score').textContent = you.score.toLocaleString('th-TH');
 
@@ -332,13 +388,16 @@
       case 'question':
         if (state.hasAnswered) {
           stopTimerLoop();
+          if (typeof state.yourChoice === 'number' && state.question) {
+            fillChip($('sent-choice'), state.yourChoice, state.question.options[state.yourChoice] || '');
+          }
           show('s-sent');
           break;
         }
         if (key !== lastPhaseKey) {
           $('q-note').textContent = '';
-          $('q-meta').textContent = 'ข้อ ' + state.question.number + ' / ' + state.question.total +
-            (state.question.points === 2 ? '  •  คะแนนคูณ 2 ✨' : '');
+          $('q-meta').textContent = 'ข้อ ' + state.question.number + ' / ' + state.question.total;
+          $('q-double').hidden = state.question.points !== 2;
           $('q-text').textContent = state.question.text;
           renderAnswers(state.question, { locked: false, chosen: state.yourChoice });
         }
@@ -350,18 +409,28 @@
         stopTimerLoop();
         var isNewReveal = key !== lastPhaseKey;
         var r = state.result || { correct: false, gained: 0, bonus: 0 };
-        $('rv-icon').textContent = r.correct ? '🎉' : '💔';
+        $('rv-icon').src = iconUrl(r.correct ? 'heart' : 'broken');
         $('rv-title').textContent = r.correct ? 'ถูกต้อง!' : (r.choice == null ? 'ไม่ทันตอบ!' : 'ยังไม่ใช่!');
         $('rv-title').className = 'big ' + (r.correct ? 'result-good' : 'result-bad');
         var sub = '';
         if (r.correct) {
           sub = '+' + r.gained.toLocaleString('th-TH') + ' คะแนน';
           if (r.bonus) sub += '  (โบนัสตอบถูกติดกัน +' + r.bonus + ')';
-        } else if (state.reveal) {
-          sub = 'คำตอบที่ถูกคือ: ' + [].concat(state.reveal.correct)
-            .map(function (i) { return state.reveal.options[i]; }).join(' / ');
         }
         $('rv-sub').textContent = sub;
+        // A miss shows the right answer as its coloured block, the way the
+        // projector's ticked bar shows it.
+        var chips = $('rv-chips');
+        chips.innerHTML = '';
+        if (!r.correct && state.reveal) {
+          [].concat(state.reveal.correct).forEach(function (i) {
+            var c = document.createElement('div');
+            c.className = 'chip';
+            fillChip(c, i, state.reveal.options[i]);
+            chips.appendChild(c);
+          });
+        }
+        $('rv-answer').hidden = !chips.childNodes.length;
         $('rv-rank').textContent = 'อันดับ ' + you.rank + ' จาก ' + state.playerCount;
         if (isNewReveal) {
           animateScore($('rv-total'), lastShownScore, you.score, 700);
@@ -386,7 +455,7 @@
 
       case 'ended':
         stopTimerLoop();
-        $('end-icon').textContent = you.rank === 1 ? '🏆' : (you.rank <= 3 ? '🥳' : '❤️');
+        $('end-icon').src = iconUrl(you.rank === 1 ? 'crown' : you.rank === 2 ? 'silver' : you.rank === 3 ? 'bronze' : 'heart');
         $('end-title').textContent = you.rank === 1 ? 'คุณคือแชมป์!' : 'จบเกมแล้ว!';
         $('end-score').textContent = you.score.toLocaleString('th-TH');
         $('end-rank').textContent = 'อันดับ ' + you.rank + ' จาก ' + state.playerCount;
@@ -429,7 +498,7 @@
       joined = true;
       joinPending = false;
       save();
-      $('join-err').textContent = '';
+      setJoinError('');
       $('btn-join').textContent = 'เข้าร่วมเกม';
     }
     state = s;
@@ -440,7 +509,8 @@
     joined = false;
     me.id = null;
     try { localStorage.removeItem('wq.player'); } catch (e) { /* ignore */ }
-    $('join-err').textContent = 'เกมถูกรีเซ็ตแล้ว — เข้าร่วมใหม่ด้วย PIN ใหม่นะ';
+    $('in-pin').value = '';                 // the old PIN is dead; don't leave it filled in
+    setJoinError('เกมถูกรีเซ็ตแล้ว เข้าร่วมใหม่ด้วย PIN ใหม่นะ', 'pin');
     show('s-join');
   });
 
@@ -449,7 +519,7 @@
     setConnectionUi(true);
   });
   socket.on('disconnect', function () {
-    $('conn').textContent = '⚠️ การเชื่อมต่อหลุด — กำลังต่อใหม่…';
+    $('conn').textContent = 'การเชื่อมต่อหลุด กำลังต่อใหม่…';
     setConnectionUi(false);
   });
   socket.io.on('reconnect', function () {

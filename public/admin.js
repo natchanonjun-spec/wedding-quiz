@@ -62,7 +62,7 @@
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), questions: questions }));
       draftWarn('');
     } catch (e) {
-      draftWarn('เก็บฉบับร่างอัตโนมัติไม่ได้ (ชุดคำถามใหญ่เกินไป) — กด "⬇ สำรองไฟล์" เก็บไว้เองด้วยนะ');
+      draftWarn('เก็บฉบับร่างอัตโนมัติไม่ได้ (ชุดคำถามใหญ่เกินไป) กด "⬇ สำรองไฟล์" เก็บไว้เองด้วยนะ');
     }
   }
 
@@ -157,7 +157,7 @@
     // still work, because that is the whole workflow on a host with no disk:
     // build the set here, export the file, commit it as questions.seed.json.
     $('b-save').disabled = true;
-    $('b-save').title = 'เซิร์ฟเวอร์นี้ล็อกคำถามไว้ — ใช้ "⬇ สำรองไฟล์" แทน';
+    $('b-save').title = 'เซิร์ฟเวอร์นี้ล็อกคำถามไว้ ใช้ "⬇ สำรองไฟล์" แทน';
     var note = document.createElement('div');
     note.className = 'card';
     note.style.cssText = 'margin-bottom:18px;border-color:rgba(232,192,122,.5)';
@@ -167,7 +167,7 @@
       '<b>แก้ในหน้านี้ได้ตามปกติ</b> (เพิ่มข้อ ใส่รูป นำเข้าไฟล์) แค่กดบันทึกขึ้นเซิร์ฟเวอร์ไม่ได้ ' +
       'งานที่แก้จะถูกเก็บเป็นฉบับร่างในเครื่องนี้ไว้ให้<br><br>' +
       'พอทำเสร็จ: กด "⬇ สำรองไฟล์" แล้วเอาไฟล์นั้นไปวางทับ <code>questions.seed.json</code> ' +
-      'แล้ว <code>git push</code> — เท่านี้คำถามชุดใหม่ก็พร้อมใช้จริง</span>';
+      'แล้ว <code>git push</code> เท่านี้คำถามชุดใหม่ก็พร้อมใช้จริง</span>';
     $('list').parentNode.insertBefore(note, $('list'));
   }
 
@@ -452,10 +452,10 @@
       var ihint = document.createElement('span');
       ihint.className = 'imghint';
       ihint.textContent = !q.image
-        ? 'ใส่รูปได้ — รูปจะขึ้นเฉพาะบนจอใหญ่ ไม่ขึ้นบนมือถือแขก'
+        ? 'ใส่รูปได้: รูปจะขึ้นเฉพาะบนจอใหญ่ ไม่ขึ้นบนมือถือแขก'
         : (q.image.indexOf('data:') === 0
           ? 'รูปนี้ขึ้นเฉพาะบนจอใหญ่ (' + Math.round(q.image.length * 0.75 / 1024) + ' KB)'
-          : 'ใช้ลิงก์ภายนอก — ต้องมีเน็ตตอนงานถึงจะขึ้น');
+          : 'ใช้ลิงก์ภายนอก: ต้องมีเน็ตตอนงานถึงจะขึ้น');
       irow.appendChild(ihint);
 
       card.appendChild(irow);
@@ -494,10 +494,10 @@
       headers: { 'content-type': 'application/json', 'x-quiz-password': password },
       body: JSON.stringify(questions),
     }).then(function (r) {
-      if (r.status === 413) throw new Error('ชุดคำถามใหญ่เกินไป (รูปเยอะ) — ลบรูปบางข้อออก แล้วกด "⬇ สำรองไฟล์" เก็บไว้ก่อน');
-      if (r.status === 423) throw new Error('คำถามถูกล็อกไว้ (LOCK_QUESTIONS) — แก้ที่ questions.seed.json แล้ว push');
-      if (r.status === 409) throw new Error('เกมกำลังเล่นอยู่ — รีเซ็ตหรือจบเกมก่อนถึงจะแก้ได้');
-      if (r.status === 401) throw new Error('รหัสผ่านหมดอายุ — โหลดหน้าใหม่');
+      if (r.status === 413) throw new Error('ชุดคำถามใหญ่เกินไป (รูปเยอะ) ลบรูปบางข้อออก แล้วกด "⬇ สำรองไฟล์" เก็บไว้ก่อน');
+      if (r.status === 423) throw new Error('คำถามถูกล็อกไว้ (LOCK_QUESTIONS) แก้ที่ questions.seed.json แล้ว push');
+      if (r.status === 409) throw new Error('เกมกำลังเล่นอยู่ รีเซ็ตหรือจบเกมก่อนถึงจะแก้ได้');
+      if (r.status === 401) throw new Error('รหัสผ่านหมดอายุ โหลดหน้าใหม่');
       if (!r.ok) throw new Error('บันทึกไม่สำเร็จ');
       return r.json();
     }).then(function (res) {
@@ -511,7 +511,7 @@
         // Keep the draft: what is on screen is NOT what the server kept.
         dirty = false;
         setState('บันทึกแล้ว แต่เซิร์ฟเวอร์ปรับบางอย่าง (เก็บได้ ' + (both.res.count || 0) +
-          ' ข้อ) — โหลดหน้าใหม่เพื่อดูของจริง และกด "⬇ สำรองไฟล์" ไว้ด้วย', 'err');
+          ' ข้อ) โหลดหน้าใหม่เพื่อดูของจริง และกด "⬇ สำรองไฟล์" ไว้ด้วย', 'err');
         return;
       }
       dirty = false;

@@ -163,6 +163,9 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .answer[data-a="1"] { background: var(--a1); }
 .answer[data-a="2"] { background: var(--a2); }
 .answer[data-a="3"] { background: var(--a3); }
+/* White on this gold is only ~2.3:1; dark text and shape read at ~7:1. */
+.answer[data-a="2"] { color: #2a1a14; }
+.answer[data-a="2"] .shape { background: #2a1a14; }
 .answer.dim { opacity: .28; }
 .answer.chosen { outline: 4px solid #fff; outline-offset: 3px; }
 .answer.right { outline: 5px solid #7dffb0; outline-offset: 3px; }

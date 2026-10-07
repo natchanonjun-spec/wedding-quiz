@@ -282,5 +282,43 @@
     return cv;
   }
 
-  window.PixelFolk = { makeSheet: makeSheet, icon: icon, FRAME_W: W + 2, FRAME_H: H + 2 };
+  // Shared props for the projector's podium and the guests' phones.
+  var CROWN = ['y....y....y', 'yy..yyy..yy', 'yyy.yyy.yyy', 'ywyyyyyyyyy', 'yryyyryyyry', 'yyyyyyyyyyy',
+               'YYYYYYYYYYY'];
+  var MEDAL = ['RR.....BB', '.RR...BB.', '..RR.BB..', '..mmmmm..', '.mwmmmmm.', '.mwmmmmM.', '.mmmmmmM.',
+               '.mmmmmMM.', '..MMMMM..'];
+  var HEART = ['.rr...rr.', 'rwrr.rrrr', 'rwrrrrrrr', 'rrrrrrrrR', '.rrrrrrR.', '..rrrrR..', '...rrR...',
+               '....R....'];
+  var BROKEN = ['.rr...rr.', 'rwrr..rrr', 'rwrr.rrrr', 'rrr.rrrrR', '.rrr.rrR.', '..r.rrR..', '...r.R...',
+                '....R....'];
+  var ICONS = {
+    crown: { grid: CROWN, c: { y: '#f7d154', Y: '#c8912a', w: '#fff6c8', r: '#e0445a' } },
+    silver: { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d7dbe6', M: '#9a9fae', w: '#fffaf0' } },
+    bronze: { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d58a4f', M: '#9c5a2c', w: '#f6c79a' } },
+    heart: { grid: HEART, c: { r: '#e0445a', R: '#a82c40', w: '#ffd6dc' } },
+    broken: { grid: BROKEN, c: { r: '#9a7a86', R: '#6e5560', w: '#d8c8ce' } }
+  };
+  function namedIcon(name) { return icon(ICONS[name].grid, ICONS[name].c); }
+
+  // The same id -> look hash the projector uses, so a guest's phone draws the
+  // exact character that walks across the big screen for them.
+  function hashId(id) {
+    var h = 0;
+    id = String(id || '');
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  // The bride (white gown, veil) and groom, as they lead the projector's lobby
+  // and greet guests on the phone's join screen.
+  var COUPLE = [
+    { outfit: 'gown', color: ['#fbf7f0', '#e2dbcd'], style: 'bun', acc: 'veil', hair: 1, skin: 1 },
+    { outfit: 'suit', suit: 0, tie: 4, style: 'short', acc: 'none', hair: 1, skin: 1 }
+  ];
+  function coupleSheets() {
+    return COUPLE.map(function (look, i) { return makeSheet(7 + i, look); });
+  }
+
+  window.PixelFolk = { makeSheet: makeSheet, icon: icon, namedIcon: namedIcon, ICONS: ICONS, hashId: hashId,
+                       coupleSheets: coupleSheets, FRAME_W: W + 2, FRAME_H: H + 2 };
 })();

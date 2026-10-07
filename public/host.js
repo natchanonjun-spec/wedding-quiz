@@ -120,7 +120,7 @@
   });
 
   $('c-reset').addEventListener('click', function () {
-    if (!confirm('ล้างทุกอย่าง?\n\nผู้เล่นทั้งหมดจะหลุดออก และได้ PIN ใหม่ — ทุกคนต้องเข้าร่วมใหม่')) return;
+    if (!confirm('ล้างทุกอย่าง?\n\nผู้เล่นทั้งหมดจะหลุดออก และได้ PIN ใหม่ ทุกคนต้องเข้าร่วมใหม่')) return;
     socket.emit('host:reset', { keepPlayers: false });
   });
 
@@ -314,14 +314,10 @@
     el.style.zIndex = LANES + 1;
     el.style.animationDuration = '18s';
     el.style.animationDelay = '-6s';
-    var looks = [
-      { outfit: 'gown', color: ['#fbf7f0', '#e2dbcd'], style: 'bun', acc: 'veil', hair: 1, skin: 1 },
-      { outfit: 'suit', suit: 0, tie: 4, style: 'short', acc: 'none', hair: 1, skin: 1 }
-    ];
-    looks.forEach(function (look, i) {
+    window.PixelFolk.coupleSheets().forEach(function (sheet) {
       var sprite = document.createElement('div');
       sprite.className = 'sprite';
-      sprite.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(7 + i, look).toDataURL() + ')';
+      sprite.style.backgroundImage = 'url(' + sheet.toDataURL() + ')';
       el.appendChild(sprite);
     });
     var tag = document.createElement('div');
@@ -687,15 +683,7 @@
 
   // Pixel crown and medals, drawn like the guests (pixelfolk.js) instead of
   // emoji, which looked like a phone UI pasted over the pixel world.
-  var CROWN = ['y....y....y', 'yy..yyy..yy', 'yyy.yyy.yyy', 'ywyyyyyyyyy', 'yryyyryyyry', 'yyyyyyyyyyy',
-               'YYYYYYYYYYY'];
-  var MEDAL = ['RR.....BB', '.RR...BB.', '..RR.BB..', '..mmmmm..', '.mwmmmmm.', '.mwmmmmM.', '.mmmmmmM.',
-               '.mmmmmMM.', '..MMMMM..'];
-  var MEDAL_ICONS = [
-    { grid: CROWN, c: { y: '#f7d154', Y: '#c8912a', w: '#fff6c8', r: '#e0445a' } },
-    { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d7dbe6', M: '#9a9fae', w: '#ffffff' } },
-    { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d58a4f', M: '#9c5a2c', w: '#f6c79a' } }
-  ];
+  var MEDAL_ICONS = ['crown', 'silver', 'bronze'];   // pixelfolk.js ICONS
 
   // The podium figures are a size up from the field's walkers, still whole pixels.
   function setPodiumScale() {
@@ -717,14 +705,19 @@
 
       var nm = document.createElement('div');
       nm.className = 'nm';
-      var ic = MEDAL_ICONS[i];
+      var ic = window.PixelFolk.ICONS[MEDAL_ICONS[i]];
       var medal = document.createElement('img');
       medal.className = 'medal';
       medal.alt = '';
-      medal.src = window.PixelFolk.icon(ic.grid, ic.c).toDataURL();
+      medal.src = window.PixelFolk.namedIcon(MEDAL_ICONS[i]).toDataURL();
       medal.style.width = 'calc(' + (ic.grid[0].length + 2) + 'px * var(--pps))';
       nm.appendChild(medal);
-      nm.appendChild(document.createTextNode(r.name + ' — ' + r.score.toLocaleString('th-TH')));
+      nm.appendChild(document.createTextNode(r.name));
+      // Score on its own line, in the pixel face, instead of "name - score" run together.
+      var sc = document.createElement('span');
+      sc.className = 'sc';
+      sc.textContent = r.score.toLocaleString('th-TH');
+      nm.appendChild(sc);
 
       // The winner's own guest from the field, by the same id hash.
       var who = document.createElement('div');
