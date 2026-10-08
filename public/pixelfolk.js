@@ -122,6 +122,83 @@
            'aa..............']
   };
 
+  /* ---- Facing the viewer: the podium, and each guest's own phone. Same
+     palette letters and the same 16x33 box as the side view, drawn symmetric,
+     standing still (the frames only breathe a pixel up and down). ---- */
+  var F_HEAD = [
+    '................',
+    '................',
+    '.....hhhhhh.....',
+    '....hhHHHhhh....',
+    '...hhHHhhhhhh...',
+    '...hhhhhhhhhh...',
+    '...hhsssssshh...',
+    '...hssssssssh...',
+    '...hsessssesh...',
+    '...hsessssesh...',
+    '...hcssssssch...',
+    '....ssssssss....',
+    '....SssccssS....',
+    '.....SssssS.....',
+    '......SssS......',
+    '.......SS.......'
+  ];
+  var F_SUIT_TORSO = [
+    '...ttttwwtttt...',
+    '...tttwxxwttt...',
+    '...Tttwwwwttt...',
+    '...TTttwwttTT...',
+    '...TTttttttTT...',
+    '...TTttttttTT...',
+    '....TttttttT....',
+    '....TttttttT....'
+  ];
+  var F_TROUSERS = [
+    '....pppppppp....', '....pppppppp....', '....ppp..ppp....', '....pPp..pPp....', '....pPp..pPp....',
+    '....pPp..pPp....', '....pPp..pPp....', '....pPp..pPp....', '...bbbb..bbbb...'
+  ];
+  var F_GOWN_TORSO = [
+    '....ssttttss....',
+    '.....tttttt.....',
+    '.....TttttT.....',
+    '.....TttttT.....',
+    '.....TttttT.....',
+    '......tttt......',
+    '......tttt......',
+    '.....tttttt.....'
+  ];
+  var F_GOWN_SKIRT = [
+    '.....TttttT.....', '....TttttttT....', '....TttttttT....', '...TTttttttTT...', '...TTttttttTT...',
+    '..TTttttttttTT..', '..TTttttttttTT..', '..TTTTTTTTTTTT..', '....bb....bb....'
+  ];
+  var F_SHORT_SKIRT = [
+    '.....TttttT.....', '....TttttttT....', '....TTTTTTTT....', '.....ss..ss.....', '.....ss..ss.....',
+    '.....sS..Ss.....', '.....sS..Ss.....', '.....sS..Ss.....', '....bbb..bbb....'
+  ];
+  // Arms hang at the sides: just outside the jacket for suits, beside the
+  // narrower bodice for gowns and dresses.
+  var F_ARMS_SUIT = ['..q..........q..', '..q..........q..', '..q..........q..', '..q..........q..',
+                     '..q..........q..', '..q..........q..', '..s..........s..'];
+  var F_ARMS_BARE = ['...q........q...', '...q........q...', '...q........q...', '...q........q...',
+                     '...q........q...', '...q........q...', '...s........s...'];
+  var F_HAIR = {
+    short: [],
+    long: ['', '', '', '', '', '', '..kh........hk..', '..kh........hk..', '..kh........hk..', '..kh........hk..',
+           '..kh........hk..', '..kh........hk..', '..kk........kk..', '..kk........kk..', '..kk........kk..',
+           '...k........k...'],
+    bun: ['.....hhhhh......', '....hHhhhhh.....'],
+    pony: ['', '', '', '', '', '', '', '..hh............', '..hk............', '..k.............'],
+    curly: ['', '', '....h.h.h.h.....', '...hhhhhhhhhh...', '..hhhhhhhhhhhh..', '..h..........h..']
+  };
+  var F_ACC = {
+    none: [],
+    flower: ['', '', '', '...........ff...', '..........fAf...', '...........f....'],
+    hat: ['....aaaaaaaa....', '....aAAAAAAa....', '..aaaaaaaaaaaa..'],
+    veil: ['', '', '', '..aa........aa..', '..aa........aa..', '..aa........aa..', '.aaa........aaa.',
+           '.aa..........aa.', '.aa..........aa.', '.aa..........aa.', '.aa..........aa.', 'aaa..........aaa',
+           'aa............aa', 'aa............aa', 'aa............aa', 'aa............aa']
+  };
+
   // Muted, warm colours picked to sit in the generated scenes rather than pop
   // off them like UI - with the same brown outline the scenes use for shadow.
   var OUTLINE = '#2a1a14';
@@ -193,7 +270,8 @@
 
   /* A (W+2)*4 x (H+2) canvas: four walk frames side by side.
      `force` overrides parts of the random look (the couple, and previews). */
-  function makeSheet(seed, force) {
+  function makeSheet(seed, force, facing) {
+    var front = facing === 'front';
     var look = lookFor(seed);
     if (force) for (var key in force) look[key] = force[key];
     var sk = SKINS[look.skin], hr = HAIRS[look.hair], fl = FLOWERS[look.flower];
@@ -220,19 +298,36 @@
     for (var f = 0; f < 4; f++) {
       var px = new Array(W * H);
       var dy = BOB[f];
-      if (look.acc === 'veil') paint(ACC.veil, map, px, 0, dy);   // veil hangs behind the head
-      paint(HEAD, map, px, 0, dy);
-      if (HAIR[look.style] && HAIR[look.style].length) paint(HAIR[look.style], map, px, 0, dy);
-
-      if (look.outfit === 'suit') {
-        paint(SUIT_TORSO, map, px, 0, 16 + dy);
-        paint(TROUSERS[f], map, px, 0, 24 + dy);
+      if (front) {
+        // Standing: the feet stay put and only the upper body breathes.
+        if (look.acc === 'veil') paint(F_ACC.veil, map, px, 0, dy);
+        paint(F_HEAD, map, px, 0, dy);
+        if (F_HAIR[look.style] && F_HAIR[look.style].length) paint(F_HAIR[look.style], map, px, 0, dy);
+        if (look.outfit === 'suit') {
+          paint(F_TROUSERS, map, px, 0, 24);
+          paint(F_SUIT_TORSO, map, px, 0, 16 + dy);
+          paint(F_ARMS_SUIT, armMap, px, 0, 17 + dy);
+        } else {
+          paint(look.outfit === 'gown' ? F_GOWN_SKIRT : F_SHORT_SKIRT, map, px, 0, 24);
+          paint(F_GOWN_TORSO, map, px, 0, 16 + dy);
+          paint(F_ARMS_BARE, armMap, px, 0, 17 + dy);
+        }
+        if (look.acc !== 'none' && look.acc !== 'veil') paint(F_ACC[look.acc], map, px, 0, dy);
       } else {
-        paint(GOWN_TORSO, map, px, 0, 16 + dy);
-        paint((look.outfit === 'gown' ? GOWN_SKIRT : SHORT_SKIRT)[f], map, px, 0, 24 + dy);
+        if (look.acc === 'veil') paint(ACC.veil, map, px, 0, dy);   // veil hangs behind the head
+        paint(HEAD, map, px, 0, dy);
+        if (HAIR[look.style] && HAIR[look.style].length) paint(HAIR[look.style], map, px, 0, dy);
+
+        if (look.outfit === 'suit') {
+          paint(SUIT_TORSO, map, px, 0, 16 + dy);
+          paint(TROUSERS[f], map, px, 0, 24 + dy);
+        } else {
+          paint(GOWN_TORSO, map, px, 0, 16 + dy);
+          paint((look.outfit === 'gown' ? GOWN_SKIRT : SHORT_SKIRT)[f], map, px, 0, 24 + dy);
+        }
+        paint(ARMS[ARM_FOR_FRAME[f]], armMap, px, 3, 17 + dy);
+        if (look.acc !== 'none' && look.acc !== 'veil') paint(ACC[look.acc], map, px, 0, dy);
       }
-      paint(ARMS[ARM_FOR_FRAME[f]], armMap, px, 3, 17 + dy);
-      if (look.acc !== 'none' && look.acc !== 'veil') paint(ACC[look.acc], map, px, 0, dy);
 
       // Outline: any empty cell touching a filled one (4-way) becomes dark.
       for (var y = -1; y <= H; y++) {
@@ -315,8 +410,8 @@
     { outfit: 'gown', color: ['#fbf7f0', '#e2dbcd'], style: 'bun', acc: 'veil', hair: 1, skin: 1 },
     { outfit: 'suit', suit: 0, tie: 4, style: 'short', acc: 'none', hair: 1, skin: 1 }
   ];
-  function coupleSheets() {
-    return COUPLE.map(function (look, i) { return makeSheet(7 + i, look); });
+  function coupleSheets(facing) {
+    return COUPLE.map(function (look, i) { return makeSheet(7 + i, look, facing); });
   }
 
   window.PixelFolk = { makeSheet: makeSheet, icon: icon, namedIcon: namedIcon, ICONS: ICONS, hashId: hashId,

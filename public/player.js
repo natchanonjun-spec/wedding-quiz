@@ -41,7 +41,7 @@
     if (!window.PixelFolk || !id) return;
     if (sheetFor !== id) {
       sheetFor = id;
-      sheetUrl = 'url(' + window.PixelFolk.makeSheet(window.PixelFolk.hashId(id)).toDataURL() + ')';
+      sheetUrl = 'url(' + window.PixelFolk.makeSheet(window.PixelFolk.hashId(id), null, 'front').toDataURL() + ')';
     }
     ['lobby-sprite', 'board-sprite', 'end-sprite'].forEach(function (el) { $(el).style.backgroundImage = sheetUrl; });
   }
@@ -62,7 +62,7 @@
   }
   (function drawCouple() {
     if (!window.PixelFolk) return;
-    window.PixelFolk.coupleSheets().forEach(function (sheet) {
+    window.PixelFolk.coupleSheets('front').forEach(function (sheet) {
       var d = document.createElement('div');
       d.className = 'sprite';
       d.style.backgroundImage = 'url(' + sheet.toDataURL() + ')';
@@ -319,14 +319,19 @@
         $('q-ready').style.display = '';
         $('q-answers').style.display = 'none';
         var digit = Math.max(1, Math.ceil((state.startsAt - t) / 1000));
-        // The first 3s of the ready window the projector shows only the new
-        // scene, so the phone points everyone at it instead of counting 6, 5, 4.
-        var look = digit > 3;
-        if ((look ? 'look' : digit) !== lastReadyDigit) {
-          lastReadyDigit = look ? 'look' : digit;
-          $('q-count').textContent = look ? '' : String(digit);
+        // The ready window: [the bonus-round announcement, before the first x2
+        // question] -> 3s of only the new scene on the projector, so the phone
+        // points everyone at it instead of counting 6, 5, 4 -> the 3-2-1.
+        var bonus = !!state.bonusIntro && state.startsAt - t > 6000;
+        var look = !bonus && digit > 3;
+        var stage = bonus ? 'bonus' : look ? 'look' : digit;
+        if (stage !== lastReadyDigit) {
+          lastReadyDigit = stage;
+          $('q-count').textContent = bonus ? 'X2' : look ? '' : String(digit);
           $('q-ready').classList.toggle('look', look);
-          $('q-ready-hint').textContent = look ? 'ดูจอใหญ่ก่อนนะ' : 'เตรียมตัว…';
+          $('q-ready').classList.toggle('bonus', bonus);
+          $('q-ready-hint').textContent = bonus ? 'รอบโบนัส! ตั้งแต่ข้อนี้คะแนน ×2'
+            : look ? 'ดูจอใหญ่ก่อนนะ' : 'เตรียมตัว…';
           bounce($('q-count'));   // 3, 2, 1 should each land with a beat, not just swap
         }
         $('q-bar').style.width = '100%';
@@ -455,6 +460,9 @@
 
       case 'ended':
         stopTimerLoop();
+        // The top three glow on their own phones too, like on the podium.
+        var place = you.rank <= 3 ? ['gold', 'silver', 'bronze'][you.rank - 1] : '';
+        $('end-me').className = 'me-wrap idle' + (place ? ' aura ' + place : '');
         $('end-icon').src = iconUrl(you.rank === 1 ? 'crown' : you.rank === 2 ? 'silver' : you.rank === 3 ? 'bronze' : 'heart');
         $('end-title').textContent = you.rank === 1 ? 'คุณคือแชมป์!' : 'จบเกมแล้ว!';
         $('end-score').textContent = you.score.toLocaleString('th-TH');

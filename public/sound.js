@@ -24,6 +24,7 @@
   var bedNextTime = 0;
   var lastTickAt = 0;        // guards the per-frame tick scheduler
   var lastReadyBeep = -1;
+  var lastJoinAt = -1;       // spaces out guestJoin plings during the join rush
   var unlockWatchers = [];
   var tensionBuffer = null;      // decoded public/audio/tension.mp3, once loaded
   var tensionBufferPromise = null;
@@ -480,6 +481,93 @@
       noise(t, 0.4, 0.20, 1000);
       noise(t + 0.54, 0.5, 0.18, 1400);
       chord([261.63, 329.63, 392.00], t + 1.47, 1.4, 'triangle', 0.14);
+    },
+
+    // A guest just walked into the lobby: a soft two-note "pling" over the
+    // lobby loop. During the join rush many land at once, so they are spaced
+    // out instead of piling into one loud smear.
+    guestJoin: function () {
+      if (!ensure()) return;
+      var t = ctx.currentTime;
+      if (t - lastJoinAt < 0.16) return;
+      lastJoinAt = t;
+      var up = [1318.51, 1567.98, 1760.00][Math.floor(Math.random() * 3)];   // a little variety
+      tone(up * 0.75, t, 0.12, 'triangle', 0.07);
+      tone(up, t + 0.07, 0.22, 'triangle', 0.08);
+    },
+
+    // The scene changes for a new question: a rising airy sweep that ends on a
+    // small sparkle, the moment the new background has the screen to itself.
+    sceneWhoosh: function () {
+      if (!ensure()) return;
+      var t = ctx.currentTime;
+      var dur = 1.1;
+      var frames = Math.floor(ctx.sampleRate * dur);
+      var buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      var bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.4;
+      bp.frequency.setValueAtTime(260, t);
+      bp.frequency.exponentialRampToValueAtTime(3200, t + dur);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + dur * 0.7);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + dur + 0.02);
+      [1567.98, 2093.00, 2637.02].forEach(function (f, k) {
+        tone(f, t + dur - 0.15 + k * 0.06, 0.25, 'triangle', 0.06);
+      });
+    },
+
+    // "Bonus round, points x2": a snare roll that speeds up into two brass
+    // stabs and a big held chord, with a sub hit under each stab.
+    bonusRound: function () {
+      if (!ensure()) return;
+      clearLoop();
+      var t = ctx.currentTime;
+      var at = t, gap = 0.11;
+      while (at < t + 1.3) {                        // the roll, tightening
+        noise(at, 0.06, 0.10 + (at - t) * 0.12, 2400);
+        at += gap;
+        gap = Math.max(0.035, gap * 0.9);
+      }
+      var stab1 = t + 1.35, stab2 = t + 1.65, hold = t + 1.95;
+      chord([392.00, 493.88, 587.33], stab1, 0.22, 'sawtooth', 0.12);
+      tone(98.00, stab1, 0.3, 'sine', 0.26, 60);
+      chord([392.00, 493.88, 587.33], stab2, 0.22, 'sawtooth', 0.12);
+      tone(98.00, stab2, 0.3, 'sine', 0.26, 60);
+      chord([523.25, 659.25, 783.99, 1046.50], hold, 1.4, 'sawtooth', 0.11);
+      chord([261.63, 392.00], hold, 1.4, 'triangle', 0.12);
+      tone(130.81, hold, 0.9, 'sine', 0.28, 65.41);
+      noise(hold, 0.6, 0.20, 1200);
+      noise(hold, 0.06, 0.18, 3600);                // crack on the downbeat
+    },
+
+    // The finale dash to the altar: footsteps that speed up with the camera,
+    // wind rising behind them, then a crash and a chord on "GOAL!" (at
+    // goalAt seconds, matching the banner in playGoalRun()).
+    goalRun: function (goalAt) {
+      if (!ensure()) return;
+      clearLoop();
+      var t = ctx.currentTime;
+      var hit = t + (goalAt || 1.2);
+      var at = t, gap = 0.26;
+      while (at < hit - 0.05) {
+        tone(90, at, 0.12, 'sine', 0.22, 45);
+        noise(at, 0.05, 0.08, 700);
+        at += gap;
+        gap = Math.max(0.12, gap * 0.86);
+      }
+      tone(220, t, hit - t, 'sawtooth', 0.03, 880);   // the wind/rush rising under the steps
+      noise(hit, 0.9, 0.24, 1600);                    // the crash
+      noise(hit, 0.08, 0.20, 4200);
+      chord([523.25, 659.25, 783.99, 1046.50, 1318.51], hit, 1.1, 'sawtooth', 0.10);
+      tone(130.81, hit, 0.9, 'sine', 0.30, 55);
     }
   };
 

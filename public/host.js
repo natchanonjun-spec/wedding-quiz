@@ -277,7 +277,7 @@
   function makeRunner(p) {
     var h = hashId(p.id);
     var el = document.createElement('div');
-    el.className = 'runner';
+    el.className = 'runner' + ((Math.floor(h / 16) % 3) === 0 ? ' left' : '');   // a third walk right-to-left
     var lane = Math.floor(h / 8) % LANES;
     el.style.setProperty('--lane', lane / (LANES - 1));
     el.style.zIndex = lane;                                                      // nearer lanes in front
@@ -338,6 +338,7 @@
         el = makeRunner(p);
         runnerNodes[p.id] = el;
         field.appendChild(el);
+        if (fieldPrimed && state.phase === 'lobby') snd('guestJoin');
       }
       el.classList.toggle('off', !p.connected);
       el.querySelector('.tag').textContent = p.name;
@@ -345,7 +346,9 @@
     for (var id in runnerNodes) {
       if (!seen[id]) { runnerNodes[id].remove(); delete runnerNodes[id]; }
     }
+    fieldPrimed = true;
   }
+  var fieldPrimed = false;
 
   function renderLobby() {
     $('join-url').textContent = joinUrl().replace(/^https?:\/\//, '');
@@ -402,6 +405,9 @@
   var answersOpenCued = false;
   var timeUpCued = false;
   var COUNTDOWN_MS = 3000;   // the 3-2-1 at the end of the server's READY_MS; before it, scene only
+  var SCENE_MS = 3000;       // the scene-only moment before that (after the bonus intro, if any)
+  var introCued = false;
+  var sceneCued = false;
 
   var lastClockDigit = null;
 
@@ -424,13 +430,21 @@
       if (!state || state.phase !== 'question') { $('clock').style.display = 'none'; return; }
       var t = now();
       $('clock').style.display = '';
-      // Beyond the last 3s of the ready window, only the background shows
-      // (body.scenic); from the question's arrival on, the scene is blurred
+      // The ready window runs: [bonus-round announcement, first x2 question
+      // only] -> 3s of only the new background (body.scenic) -> the question
+      // with the 3-2-1. From the question's arrival on, the scene is blurred
       // behind it (#world.dim) so the text reads clearly.
-      var scenic = t < state.startsAt - COUNTDOWN_MS;
-      document.body.classList.toggle('scenic', scenic);
-      $('world').classList.toggle('dim', !scenic);
-      if (scenic) {
+      var intro = !!state.bonusIntro && t < state.startsAt - COUNTDOWN_MS - SCENE_MS;
+      var scenic = !intro && t < state.startsAt - COUNTDOWN_MS;
+      document.body.classList.toggle('bonus-intro', intro);
+      document.body.classList.toggle('scenic', scenic || intro);
+      $('world').classList.toggle('dim', !scenic && !intro);
+      if (intro) {
+        if (!introCued) { introCued = true; snd('bonusRound'); }
+        $('q-answers').style.visibility = 'hidden';
+        $('q-bar').style.width = '100%';
+      } else if (scenic) {
+        if (!sceneCued) { sceneCued = true; snd('sceneWhoosh'); }
         $('q-answers').style.visibility = 'hidden';
         $('q-bar').style.width = '100%';
       } else if (t < state.startsAt) {
@@ -633,6 +647,7 @@
     var el = $('goalrun');
     if (!el) { onDone(); return; }
     cancelGoalRun();
+    snd('goalRun', 1.2);   // the banner below lands at 1200ms
 
     // Rose petals burst out of the vanishing point in every direction.
     var posts = $('gr-posts');
@@ -719,16 +734,32 @@
       sc.textContent = r.score.toLocaleString('th-TH');
       nm.appendChild(sc);
 
-      // The winner's own guest from the field, by the same id hash.
+      // The winner's own guest from the field, by the same id hash, now facing
+      // the room, standing in an aura: a light beam, turning rays, sparks
+      // rising, and a glowing outline, in their medal's colour.
+      var stage = document.createElement('div');
+      stage.className = 'stage';
+      var aura = document.createElement('div');
+      aura.className = 'aura';
+      aura.innerHTML = '<i class="beam"></i><i class="rays"></i><i class="ring"></i>';
+      for (var k = 0; k < (i === 0 ? 14 : 9); k++) {
+        var sp = document.createElement('b');
+        sp.style.setProperty('--x', (8 + Math.random() * 84) + '%');
+        sp.style.setProperty('--d', (Math.random() * 1.6).toFixed(2) + 's');
+        sp.style.setProperty('--t', (1.1 + Math.random() * 0.9).toFixed(2) + 's');
+        aura.appendChild(sp);
+      }
       var who = document.createElement('div');
       who.className = 'who';
-      who.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(hashId(r.id || r.name)).toDataURL() + ')';
+      who.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(hashId(r.id || r.name), null, 'front').toDataURL() + ')';
+      stage.appendChild(aura);
+      stage.appendChild(who);
 
       var blk = document.createElement('div');
       blk.className = 'blk';
       blk.textContent = i + 1;
 
-      d.appendChild(nm); d.appendChild(who); d.appendChild(blk);
+      d.appendChild(nm); d.appendChild(stage); d.appendChild(blk);
       pod.appendChild(d);
     });
   }
@@ -798,8 +829,11 @@
 
     if (state.phase !== 'question' && raf) { cancelAnimationFrame(raf); raf = null; $('clock').style.display = 'none'; }
     // The reveal repeats the question over the scene, so it stays blurred too.
+    // The bonus round's questions wear a gold frame on the projector.
+    document.body.classList.toggle('x2', state.phase === 'question' && !!state.question && state.question.points === 2);
     if (state.phase !== 'question') {
       document.body.classList.remove('scenic');
+      document.body.classList.remove('bonus-intro');
       $('world').classList.toggle('dim', state.phase === 'reveal');
     }
 
@@ -812,7 +846,10 @@
         renderLobby();
         break;
       case 'question': {
-        if (view('q')) { cancelCelebration(); answersOpenCued = false; timeUpCued = false; }
+        if (view('q')) {
+          cancelCelebration();
+          answersOpenCued = false; timeUpCued = false; introCued = false; sceneCued = false;
+        }
         paintImage('q-img', 'v-q');
         renderQuestion();
         timerLoop();

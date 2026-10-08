@@ -27,6 +27,9 @@ const LOCK_QUESTIONS = /^(1|true|yes)$/i.test(process.env.LOCK_QUESTIONS || '');
 // Before the answers appear: 3s with only the new background on the projector
 // (the scene change gets its moment), then the question and a 3-2-1 countdown.
 const READY_MS = 6000;
+// The first double-points question after normal ones opens the bonus round:
+// this long a "from here on, points x2" announcement plays before its ready window.
+const BONUS_INTRO_MS = 5000;
 const GRACE_MS = 400;     // slack for network latency at the end of a question
 const STREAK_BONUS = 100; // extra points per consecutive correct answer
 const STREAK_CAP = 500;
@@ -354,6 +357,7 @@ function baseState() {
     endsAt: game.endsAt,
     serverNow: Date.now(),
     question: game.phase === 'question' ? publicQuestion() : null,
+    bonusIntro: game.phase === 'question' && !!game.bonusIntro,
   };
 }
 
@@ -448,7 +452,9 @@ function startQuestion(i) {
 
   const q = currentQuestion();
   const now = Date.now();
-  game.startsAt = now + READY_MS;
+  const prev = game.questions[i - 1];
+  game.bonusIntro = q.points === 2 && (!prev || prev.points !== 2);
+  game.startsAt = now + READY_MS + (game.bonusIntro ? BONUS_INTRO_MS : 0);
   game.endsAt = game.startsAt + q.timeLimit * 1000;
   questionTimer = setTimeout(revealQuestion, (game.endsAt - now) + GRACE_MS);
 
