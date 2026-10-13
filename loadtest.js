@@ -155,7 +155,9 @@ async function main() {
       check('all answers counted in reveal', counted === N, `counted ${counted}/${N}`);
       const gotResult = players.filter((p) => p.results.length === round + 1).length;
       check('every guest got a personal result', gotResult === N, `${gotResult}/${N}`);
-      expectedCorrect.n = hostState.reveal.counts[hostState.reveal.correct];
+      // One right answer, or several (a trick question where every choice scores).
+      expectedCorrect.n = [].concat(hostState.reveal.correct)
+        .reduce((sum, i) => sum + (hostState.reveal.counts[i] || 0), 0);
       const scoredRight = players.filter((p) => p.results[round] && p.results[round].correct).length;
       check('correct-answer count matches scoring', scoredRight === expectedCorrect.n,
         `reveal ${expectedCorrect.n} vs scored ${scoredRight}`);
