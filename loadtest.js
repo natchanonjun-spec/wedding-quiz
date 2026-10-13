@@ -151,6 +151,9 @@ async function main() {
     check('reveal reached', hostState.phase === 'reveal');
 
     if (hostState.reveal) {
+      // Over a real network the 200 personal results land a little after the
+      // host's reveal; give them a moment before judging.
+      for (let i = 0; i < 30 && players.filter((p) => p.results.length === round + 1).length < N; i += 1) await sleep(100);
       const counted = hostState.reveal.counts.reduce((a, b) => a + b, 0);
       check('all answers counted in reveal', counted === N, `counted ${counted}/${N}`);
       const gotResult = players.filter((p) => p.results.length === round + 1).length;
