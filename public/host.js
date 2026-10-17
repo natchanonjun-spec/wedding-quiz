@@ -402,6 +402,24 @@
     $('q-total').textContent = state.playerCount;
   }
 
+  // Ring the bell: during a question, the guests betting on it; on the scoreboard
+  // (and lobby), how many have already rung for the next one.
+  var lastBells = 0;
+  function renderBells() {
+    var n = (state && state.bellsArmed) || 0;
+    $('q-bells').hidden = !(n && state.phase === 'question');
+    $('q-bells-n').textContent = n;
+    $('b-bells').hidden = !(n && state.phase === 'scoreboard');
+    $('b-bells-n').textContent = n;
+    lastBells = n;
+  }
+
+  // A few names, then "+N", so 40 bells never overflow the projector.
+  function nameList(names) {
+    var MAX = 6;
+    return names.slice(0, MAX).join(', ') + (names.length > MAX ? ' +' + (names.length - MAX) : '');
+  }
+
   var answersOpenCued = false;
   var timeUpCued = false;
   var COUNTDOWN_MS = 3000;   // the 3-2-1 at the end of the server's READY_MS; before it, scene only
@@ -520,6 +538,13 @@
     var correctCount = right.reduce(function (n, i) { return n + (r.counts[i] || 0); }, 0);
     $('rv-sub').textContent = 'ตอบถูก ' + correctCount + ' คน' +
       (r.noAnswer ? '  •  ไม่ได้ตอบ ' + r.noAnswer + ' คน' : '');
+
+    var b = state.bellResults || { won: [], lost: [] };
+    var parts = [];
+    if (b.won.length) parts.push('🔔 กระดิ่งรุ่ง ×2: ' + nameList(b.won));
+    if (b.lost.length) parts.push('💥 กระดิ่งพัง: ' + nameList(b.lost));
+    $('rv-bells').textContent = parts.join('   •   ');
+    $('rv-bells').hidden = !parts.length;
   }
 
   /* ---------------- boards ---------------- */
@@ -810,6 +835,7 @@
     if (!state || !state.isHost) return;
 
     $('phase-label').textContent = LABELS[state.phase] || state.phase;
+    renderBells();
     $('st-players').textContent = state.playerCount;
     $('st-q').textContent = (state.phase === 'lobby' ? 0 : Math.min(state.index + 1, state.questionCount)) +
       '/' + state.questionCount;
@@ -928,6 +954,15 @@
     // `tally` only fires when someone answers -- so update it here too.
     if (state.phase === 'question') $('q-total').textContent = r.playerCount;
     renderGuests();
+  });
+
+  // A guest rang (or un-rang) the bell between questions.
+  socket.on('bells', function (b) {
+    if (!state) return;
+    var before = lastBells;
+    state.bellsArmed = b.armed;
+    renderBells();
+    if (b.armed > before) snd('bellRing');
   });
 
   // Cheap incremental update while a question is live (see server note).

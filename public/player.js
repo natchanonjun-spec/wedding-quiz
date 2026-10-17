@@ -15,6 +15,7 @@
   var raf = null;
   var answerPending = false;
   var joinPending = false;
+  var bellPending = false;
 
   function now() { return Date.now() + clockOffset; }
 
@@ -304,6 +305,54 @@
     });
   }
 
+  /* ---------------- ring the bell ---------------- */
+
+  // One card, moved into whichever between-questions screen is showing. It is
+  // only there while the server would accept a ring (not mid-question, not after
+  // the last question, not once the bell is spent).
+  function renderBell(slotId) {
+    var card = $('bell');
+    var you = state && state.you;
+    var open = !!(you && state.bellOpen && you.bell !== 'used');
+    if (!open) { card.hidden = true; return; }
+    if (card.parentNode !== $(slotId)) $(slotId).appendChild(card);
+    if (!$('bell-icon').src) $('bell-icon').src = iconUrl('bell');
+    var armed = you.bell === 'armed';
+    card.classList.toggle('armed', armed);
+    if (!bellPending) $('btn-bell').textContent = armed ? 'ยกเลิกกระดิ่ง' : 'Ring the Bell!';
+    card.hidden = false;
+  }
+
+  $('btn-bell').addEventListener('click', function () {
+    if (bellPending || !state || !state.you) return;
+    var on = state.you.bell !== 'armed';
+    var btn = $('btn-bell');
+    bellPending = true;
+    btn.disabled = true;
+    $('bell-err').textContent = '';
+    var settled = false;
+    var giveUp = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      bellPending = false;
+      btn.disabled = false;
+      $('bell-err').textContent = 'ส่งไม่สำเร็จ แตะอีกครั้งนะ';
+      render();
+    }, ANSWER_TIMEOUT_MS);
+    socket.emit('player:bell', { on: on }, function (res) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(giveUp);
+      bellPending = false;
+      btn.disabled = false;
+      if (!res || !res.ok) {
+        $('bell-err').textContent = res && res.error === 'closed' ? 'คำถามขึ้นแล้ว กดได้อีกทีก่อนข้อถัดไปนะ'
+          : res && res.error === 'used' ? 'คุณใช้กระดิ่งไปแล้ว' : 'ส่งไม่สำเร็จ แตะอีกครั้งนะ';
+      }
+      render();
+    });
+  });
+
   /* ---------------- timer ---------------- */
 
   var lastReadyDigit = null;
@@ -388,6 +437,7 @@
         $('lobby-count').textContent = state.playerCount;
         lastShownScore = you.score;   // keep the baseline correct across a mid-game rejoin
         show('s-lobby');
+        renderBell('slot-lobby');
         break;
 
       case 'question':
@@ -396,6 +446,7 @@
           if (typeof state.yourChoice === 'number' && state.question) {
             fillChip($('sent-choice'), state.yourChoice, state.question.options[state.yourChoice] || '');
           }
+          $('sent-bell').hidden = you.bell !== 'armed';
           show('s-sent');
           break;
         }
@@ -403,6 +454,7 @@
           $('q-note').textContent = '';
           $('q-meta').textContent = 'ข้อ ' + state.question.number + ' / ' + state.question.total;
           $('q-double').hidden = state.question.points !== 2;
+          $('q-bell').hidden = you.bell !== 'armed';
           $('q-text').textContent = state.question.text;
           renderAnswers(state.question, { locked: false, chosen: state.yourChoice });
         }
@@ -420,7 +472,11 @@
         var sub = '';
         if (r.correct) {
           sub = '+' + r.gained.toLocaleString('th-TH') + ' คะแนน';
+          if (r.bell === 'won') sub += '  (กระดิ่ง ×2 +' + r.bellExtra.toLocaleString('th-TH') + ')';
           if (r.bonus) sub += '  (โบนัสตอบถูกติดกัน +' + r.bonus + ')';
+        } else if (r.bell === 'lost') {
+          sub = r.bellLost ? 'กระดิ่งพลาด! −' + r.bellLost.toLocaleString('th-TH') + ' คะแนน'
+            : 'กระดิ่งพลาด! (ยังไม่มีคะแนนให้หัก รอดไป)';
         }
         $('rv-sub').textContent = sub;
         // A miss shows the right answer as its coloured block, the way the
@@ -445,6 +501,7 @@
           setScoreText($('rv-total'), you.score);
         }
         show('s-reveal');
+        renderBell('slot-reveal');
         break;
       }
 
@@ -456,6 +513,7 @@
         $('board-you').textContent = 'จาก ' + state.playerCount + ' คน';
         lastShownScore = you.score;   // the climb already happened on the reveal screen
         show('s-board');
+        renderBell('slot-board');
         break;
 
       case 'ended':

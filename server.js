@@ -33,6 +33,10 @@ const BONUS_INTRO_MS = 5000;
 const GRACE_MS = 400;     // slack for network latency at the end of a question
 const STREAK_BONUS = 100; // extra points per consecutive correct answer
 const STREAK_CAP = 500;
+// "Ring the bell": once per game, a guest bets on the NEXT question before seeing it.
+// Right doubles that question's points; wrong (or no answer) costs this much per
+// points-multiplier, never taking a score below 0.
+const BELL_PENALTY = 500;
 const SNAPSHOT_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -184,7 +188,7 @@ function snapshot() {
       index: game.index,
       joinLocked: game.joinLocked,
       players: playerList().map((p) => ({
-        id: p.id, name: p.name, score: p.score, streak: p.streak, joinedAt: p.joinedAt,
+        id: p.id, name: p.name, score: p.score, streak: p.streak, joinedAt: p.joinedAt, bell: p.bell || null,
       })),
     }), 'utf8');
   } catch (err) {
@@ -224,6 +228,7 @@ function restoreSnapshot() {
       joinedAt: p.joinedAt || Date.now(),
       connected: false,
       lastResult: null,
+      bell: p.bell === 'armed' || p.bell === 'used' ? p.bell : null,
     });
   }
   console.log('Restored ' + game.players.size + ' players from snapshot (phase=' + game.phase + ').');
@@ -345,6 +350,19 @@ function revealPayload() {
   };
 }
 
+// The bell can only be rung between questions, for the one coming up: once a
+// question starts its text is on every phone, so betting then would not be blind.
+function bellOpen() {
+  return (game.phase === 'lobby' || game.phase === 'reveal' || game.phase === 'scoreboard') &&
+    game.index + 1 < game.questions.length;
+}
+
+function bellsArmed() {
+  let n = 0;
+  for (const p of game.players.values()) if (p.bell === 'armed') n += 1;
+  return n;
+}
+
 function baseState() {
   return {
     phase: game.phase,
@@ -368,13 +386,17 @@ function hostState() {
     id: p.id, name: p.name, score: p.score, connected: p.connected,
   }));
   state.answered = game.answers.size;
+  state.bellsArmed = bellsArmed();
   // Guests never receive the image: it is the big screen's job, and shipping a
   // ~150KB data URI to 150 phones would undo the join-rush work.
   if (game.phase === 'question' || game.phase === 'reveal') {
     state.questionImage = (currentQuestion() || {}).image || null;
   }
   if (game.phase === 'question') state.correct = (currentQuestion() || {}).correct;
-  if (game.phase === 'reveal') state.reveal = revealPayload();
+  if (game.phase === 'reveal') {
+    state.reveal = revealPayload();
+    state.bellResults = game.bellResults || { won: [], lost: [] };
+  }
   if (game.phase === 'scoreboard' || game.phase === 'ended') state.scoreboard = ranked();
   return state;
 }
@@ -388,8 +410,10 @@ function playerState(player) {
       score: player.score,
       streak: player.streak,
       rank: rankOf(player.id),
+      bell: player.bell || null,
     }
     : null;
+  state.bellOpen = bellOpen();
   state.hasAnswered = player ? game.answers.has(player.id) : false;
 
   if (player && game.phase === 'question') {
@@ -467,17 +491,34 @@ function revealQuestion() {
   if (game.phase !== 'question') return;
   const q = currentQuestion();
 
+  game.bellResults = { won: [], lost: [] };
   for (const player of game.players.values()) {
     const a = game.answers.get(player.id);
+    const rang = player.bell === 'armed';
+    if (rang) player.bell = 'used';
     if (a && a.correct) {
       player.streak += 1;
       const bonus = Math.min(STREAK_CAP, Math.max(0, player.streak - 1) * STREAK_BONUS);
-      const gained = a.gained + bonus;
+      // The bell doubles the question's own points; the streak bonus stays as it is.
+      const bellExtra = rang ? a.gained : 0;
+      const gained = a.gained + bellExtra + bonus;
       player.score += gained;
       player.lastResult = { correct: true, gained, bonus, choice: a.choice };
+      if (rang) {
+        player.lastResult.bell = 'won';
+        player.lastResult.bellExtra = bellExtra;
+        game.bellResults.won.push(player.name);
+      }
     } else {
       player.streak = 0;
       player.lastResult = { correct: false, gained: 0, bonus: 0, choice: a ? a.choice : null };
+      if (rang) {
+        const lost = Math.min(player.score, BELL_PENALTY * ((q && q.points) || 1));
+        player.score -= lost;
+        player.lastResult.bell = 'lost';
+        player.lastResult.bellLost = lost;
+        game.bellResults.lost.push(player.name);
+      }
     }
   }
 
@@ -514,12 +555,14 @@ function resetGame(keepPlayers) {
   game.index = -1;
   game.answers = new Map();
   game.joinLocked = false;
+  game.bellResults = null;
 
   if (keepPlayers) {
     for (const p of game.players.values()) {
       p.score = 0;
       p.streak = 0;
       p.lastResult = null;
+      p.bell = null;
     }
   } else {
     game.players.clear();
@@ -594,6 +637,7 @@ io.on('connection', (socket) => {
       p.score = 0;
       p.streak = 0;
       p.lastResult = null;
+      if (p.bell === 'used') p.bell = null;   // a bell rung in the lobby stays rung for question 1
     }
     game.joinLocked = true;
     startQuestion(0);
@@ -657,6 +701,7 @@ io.on('connection', (socket) => {
         joinedAt: Date.now(),
         connected: true,
         lastResult: null,
+        bell: null,
       };
       game.players.set(id, player);
     }
@@ -707,6 +752,20 @@ io.on('connection', (socket) => {
     // during one question. The host only needs the counter to move.
     io.to('hosts').emit('tally', { answered: game.answers.size, playerCount: game.players.size });
     maybeEarlyReveal();
+  });
+
+  // Ring (on: true) or un-ring the bell for the next question.
+  socket.on('player:bell', (payload, ack) => {
+    const reply = acker(ack);
+    const player = game.players.get(socket.data.playerId);
+    if (!player) return reply({ ok: false, error: 'not-joined' });
+    if (player.bell === 'used') return reply({ ok: false, error: 'used' });
+    if (!bellOpen()) return reply({ ok: false, error: 'closed' });
+    player.bell = payload && payload.on ? 'armed' : null;
+    reply({ ok: true, bell: player.bell });
+    socket.emit('state', playerState(player));
+    io.to('hosts').emit('bells', { armed: bellsArmed() });
+    snapshotSoon();
   });
 
   socket.on('disconnect', () => {

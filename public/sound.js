@@ -24,7 +24,8 @@
   var bedNextTime = 0;
   var lastTickAt = 0;        // guards the per-frame tick scheduler
   var lastReadyBeep = -1;
-  var lastJoinAt = -1;       // spaces out guestJoin plings during the join rush
+  var lastJoinAt = -1;
+  var lastBellAt = -1;       // same idea for bellRing when many guests ring at once       // spaces out guestJoin plings during the join rush
   var unlockWatchers = [];
   var tensionBuffer = null;      // decoded public/audio/tension.mp3, once loaded
   var tensionBufferPromise = null;
@@ -494,6 +495,19 @@
       var up = [1318.51, 1567.98, 1760.00][Math.floor(Math.random() * 3)];   // a little variety
       tone(up * 0.75, t, 0.12, 'triangle', 0.07);
       tone(up, t + 0.07, 0.22, 'triangle', 0.08);
+    },
+
+    // A guest rang the bell for the next question: a bright little "ding-ding",
+    // spaced out like guestJoin so a rush of rings stays a ring, not a smear.
+    bellRing: function () {
+      if (!ensure()) return;
+      var t = ctx.currentTime;
+      if (t - lastBellAt < 0.22) return;
+      lastBellAt = t;
+      tone(2093.00, t, 0.35, 'sine', 0.09);
+      tone(2637.02, t, 0.30, 'triangle', 0.04);
+      tone(2093.00, t + 0.13, 0.5, 'sine', 0.08);
+      tone(3135.96, t + 0.13, 0.4, 'triangle', 0.03);
     },
 
     // The scene changes for a new question: a rising airy sweep that ends on a

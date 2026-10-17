@@ -118,6 +118,11 @@
   .bonus { position:fixed; inset:0; z-index:35; display:none; place-items:center; overflow:hidden; pointer-events:none;
            background:radial-gradient(circle at 50% 50%, rgba(40,20,4,.55), rgba(14,8,20,.85)); }
   body.bonus-intro .bonus { display:grid; }
+  /* Ring the bell: who is betting on this question, and how it went. */
+  .bellpill { font-size:20px; border-color:#ffd84a !important; box-shadow:0 0 0 3px #4a2711, 0 0 18px rgba(255,216,74,.5); }
+  .bellpill[hidden] { display:none !important; }
+  .bellpill b { color:var(--gold); }
+  #rv-bells { max-width:90%; white-space:normal; line-height:1.5; }
   .bonus .rays { position:absolute; left:50%; top:50%; width:160vmax; aspect-ratio:1; translate:-50% -50%;
                  background:repeating-conic-gradient(rgba(255,216,74,.22) 0 7deg, transparent 7deg 22deg);
                  animation:raysSpin 14s steps(90) infinite; }
@@ -477,6 +482,7 @@
       <div id="q-answers" class="answers host"></div>
       <p class="center" style="margin:8px 0 0">
         <span class="hint pill" style="font-size:20px">ตอบแล้ว <b id="q-answered" style="color:var(--gold)">0</b> / <span id="q-total">0</span> คน</span>
+        <span class="hint pill bellpill" id="q-bells" hidden>🔔 กดกระดิ่งข้อนี้ <b id="q-bells-n">0</b> คน</span>
       </p>
     </div>
 
@@ -490,12 +496,14 @@
         <div id="rv-bars" class="bars" style="margin-top:4px"></div>
       </div>
       <p class="center" style="margin:14px 0 0"><span class="hint pill" style="font-size:20px" id="rv-sub"></span></p>
+      <p class="center" style="margin:10px 0 0"><span class="hint pill bellpill" id="rv-bells" hidden></span></p>
     </div>
 
     <!-- scoreboard -->
     <div id="v-board" class="grow" style="display:none">
       <div class="center"><span class="monogram pill" style="font-size:16px">Leaderboard</span></div>
       <ul class="lb" id="lb"></ul>
+      <p class="center" style="margin:10px 0 0"><span class="hint pill bellpill" id="b-bells" hidden>🔔 กดกระดิ่งรอข้อถัดไปแล้ว <b id="b-bells-n">0</b> คน</span></p>
     </div>
 
     <!-- ended -->

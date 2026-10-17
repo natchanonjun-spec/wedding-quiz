@@ -386,7 +386,10 @@
                '....R....'];
   var BROKEN = ['.rr...rr.', 'rwrr..rrr', 'rwrr.rrrr', 'rrr.rrrrR', '.rrr.rrR.', '..r.rrR..', '...r.R...',
                 '....R....'];
+  var BELL = ['.....h.....', '....yyy....', '...ywyyy...', '..yywyyyy..', '..ywyyyyY..', '..yyyyyyY..',
+              '.yyyyyyyYY.', 'yyyyyyyyyYY', 'YYYYYYYYYYY', '....YrY....', '.....r.....'];
   var ICONS = {
+    bell: { grid: BELL, c: { y: '#f7d154', Y: '#c8912a', w: '#fff6c8', h: '#8a5530', r: '#e0445a' } },
     crown: { grid: CROWN, c: { y: '#f7d154', Y: '#c8912a', w: '#fff6c8', r: '#e0445a' } },
     silver: { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d7dbe6', M: '#9a9fae', w: '#fffaf0' } },
     bronze: { grid: MEDAL, c: { R: '#d64a5a', B: '#4b7bb5', m: '#d58a4f', M: '#9c5a2c', w: '#f6c79a' } },

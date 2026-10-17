@@ -171,6 +171,27 @@
   .rank { font-size: 56px; color: var(--accent); line-height: 1.1; text-shadow: 0 5px 0 var(--outline); }
   .thanks { margin: 0; }
 
+  /* ---------- ring the bell ---------- */
+  .bell { text-align: left; display: grid; gap: 12px; padding: 16px; }
+  .bell-head { display: flex; align-items: center; gap: 12px; }
+  .bell-icon { width: 52px; height: auto; image-rendering: pixelated; flex: none;
+               filter: drop-shadow(0 3px 0 rgba(20, 8, 2, .5)); }
+  .bell-title { font-family: 'Press Start 2P', monospace; font-size: 14px; color: var(--accent); line-height: 1.5; }
+  .bell-rules { margin: 0; padding: 0 0 0 20px; display: grid; gap: 4px; font-size: 15px; line-height: 1.5; }
+  .bell-rules b.good { color: var(--good); }
+  .bell-rules b.bad { color: var(--bad); }
+  .bell .btn { font-weight: 800; }
+  .bell .error { margin: 0; }
+  .bell-on { display: none; font-weight: 800; color: var(--good); }
+  /* Rung: the card says so and the button becomes the way back out. */
+  .bell.armed { border-color: #ffd84a; box-shadow: 0 0 0 3px var(--outline), inset 0 0 0 2px #c8912a, 0 0 22px rgba(255, 216, 74, .45); }
+  .bell.armed .bell-on { display: block; }
+  .bell.armed .bell-icon { animation: ring .9s steps(2) infinite; }
+  .bell.armed .btn { background: var(--cream); }
+  @keyframes ring { 0%, 100% { rotate: -12deg; } 50% { rotate: 12deg; } }
+  .bell-slot:empty { display: none; }
+  .pill.bellpill { background: #ffd84a; color: var(--ink); border-color: #fff0c8; }
+
   .conn { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 5;
           margin: 0; white-space: nowrap; background: #6b1f2b; border-color: #ffb9be; }
   .conn:empty { display: none; }
@@ -183,7 +204,7 @@
   /* Motion here only ever says "something changed" (a new screen, a count, a
      walk cycle); with reduced motion everything simply appears. */
   @media (prefers-reduced-motion: reduce) {
-    .screen.active, .pop, .sprite, .waitdots span, .rays { animation: none !important; }
+    .screen.active, .pop, .sprite, .waitdots span, .rays, .bell-icon { animation: none !important; }
     .btn, .answer, .timerbar > i { transition: none !important; }
   }
 </style>
@@ -231,6 +252,7 @@
         <p class="muted waitdots">รอเจ้าภาพเริ่มเกม<span>.</span><span>.</span><span>.</span></p>
         <p class="muted small">อย่าปิดหน้านี้นะ • เข้าร่วมแล้ว <b id="lobby-count">0</b> คน</p>
       </div>
+      <div class="bell-slot" id="slot-lobby"></div>
     </div>
   </section>
 
@@ -241,7 +263,7 @@
       <div class="pts"><span class="px" id="q-score">0</span>คะแนน</div>
     </div>
     <div class="panel qpanel">
-      <p class="qmeta"><span id="q-meta"></span><span class="pill gold" id="q-double" hidden>คะแนน ×2</span></p>
+      <p class="qmeta"><span id="q-meta"></span><span><span class="pill bellpill" id="q-bell" hidden>กระดิ่งดังอยู่!</span> <span class="pill gold" id="q-double" hidden>คะแนน ×2</span></span></p>
       <h2 class="qhead" id="q-text"></h2>
       <div class="timerbar" aria-hidden="true"><i id="q-bar"></i></div>
     </div>
@@ -264,6 +286,7 @@
         </div>
         <p class="muted">ยิ่งตอบเร็ว ยิ่งได้คะแนนเยอะ<br>รอดูเฉลยบนจอใหญ่ได้เลย</p>
         <p id="sent-note" class="warn"></p>
+        <p id="sent-bell" class="warn" hidden>คุณกดกระดิ่งข้อนี้ไว้ ถูกได้ ×2 ผิดโดนหัก!</p>
       </div>
     </div>
   </section>
@@ -286,6 +309,7 @@
           <div><span class="pill" id="rv-rank"></span></div>
         </div>
       </div>
+      <div class="bell-slot" id="slot-reveal"></div>
     </div>
   </section>
 
@@ -299,6 +323,7 @@
         <p class="muted small" id="board-you" style="margin:0"></p>
         <div class="pill" id="board-score"></div>
       </div>
+      <div class="bell-slot" id="slot-board"></div>
     </div>
   </section>
 
@@ -316,6 +341,24 @@
       <p class="muted thanks">ขอบคุณที่มาร่วมงานนะคะ/ครับ</p>
     </div>
   </section>
+
+  <div id="bell" class="panel bell" hidden>
+    <div class="bell-head">
+      <img class="bell-icon" id="bell-icon" alt="">
+      <div>
+        <div class="bell-title">RING THE BELL</div>
+        <div class="muted small">เดิมพันข้อถัดไป ใช้ได้ครั้งเดียวทั้งเกม</div>
+      </div>
+    </div>
+    <ul class="bell-rules">
+      <li><b class="good">ตอบถูก</b> ได้คะแนนข้อนั้น ×2</li>
+      <li><b class="bad">ตอบผิด หรือไม่ทันตอบ</b> โดนหัก 500 คะแนน (ข้อคะแนน ×2 หัก 1,000)</li>
+      <li>ต้องกดก่อนคำถามขึ้น ยังไม่รู้ว่าข้อถัดไปถามอะไร!</li>
+    </ul>
+    <p class="bell-on" role="status">กระดิ่งดังแล้ว! เดิมพันข้อถัดไป</p>
+    <button id="btn-bell" class="btn block" type="button">Ring the Bell!</button>
+    <p id="bell-err" class="error center" role="alert"></p>
+  </div>
 
   <p id="conn" class="pill conn" role="status"></p>
 </div>
