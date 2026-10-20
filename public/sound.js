@@ -499,15 +499,25 @@
 
     // A guest rang the bell for the next question: a bright little "ding-ding",
     // spaced out like guestJoin so a rush of rings stays a ring, not a smear.
+    // Two strikes of a small brass bell: a real bell's off-key partials (hum,
+    // strike, minor third, fifth, octave...) each ringing out at its own length,
+    // so it sounds struck rather than beeped. The pitch wanders a little per ring.
     bellRing: function () {
       if (!ensure()) return;
       var t = ctx.currentTime;
-      if (t - lastBellAt < 0.22) return;
+      if (t - lastBellAt < 0.25) return;
       lastBellAt = t;
-      tone(2093.00, t, 0.35, 'sine', 0.09);
-      tone(2637.02, t, 0.30, 'triangle', 0.04);
-      tone(2093.00, t + 0.13, 0.5, 'sine', 0.08);
-      tone(3135.96, t + 0.13, 0.4, 'triangle', 0.03);
+      var f = 1046.5 * (0.97 + Math.random() * 0.06);
+      [0, 0.16].forEach(function (at, k) {
+        var v = k ? 0.8 : 1;
+        tone(f * 0.5, t + at, 1.6, 'sine', 0.035 * v);
+        tone(f, t + at, 1.3, 'sine', 0.09 * v);
+        tone(f * 1.19, t + at, 0.9, 'sine', 0.045 * v);
+        tone(f * 1.5, t + at, 0.7, 'sine', 0.035 * v);
+        tone(f * 2.0, t + at, 0.55, 'sine', 0.03 * v);
+        tone(f * 2.74, t + at, 0.3, 'sine', 0.02 * v);
+        tone(f * 4.1, t + at, 0.12, 'triangle', 0.02 * v);   // the clapper's tick
+      });
     },
 
     // The scene changes for a new question: a rising airy sweep that ends on a

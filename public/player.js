@@ -307,6 +307,34 @@
 
   /* ---------------- ring the bell ---------------- */
 
+  // The guest's own phone rings too, the moment they tap. Phones only allow
+  // sound from inside a tap, which this always is. Same bell as the projector's,
+  // built in place so the phone never loads the projector's music engine.
+  var bellCtx = null;
+  function ringOnPhone() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!bellCtx) bellCtx = new AC();
+      if (bellCtx.state === 'suspended') bellCtx.resume();
+      var t = bellCtx.currentTime + 0.02, f = 1046.5;
+      var parts = [[0.5, 1.6, 0.05], [1, 1.3, 0.16], [1.19, 0.9, 0.08], [1.5, 0.7, 0.06], [2, 0.55, 0.05],
+                   [2.74, 0.3, 0.035]];
+      [0, 0.16].forEach(function (at, k) {
+        parts.forEach(function (p) {
+          var o = bellCtx.createOscillator(), g = bellCtx.createGain();
+          o.frequency.value = f * p[0];
+          g.gain.setValueAtTime(0.0001, t + at);
+          g.gain.exponentialRampToValueAtTime(p[2] * (k ? 0.8 : 1), t + at + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + at + p[1]);
+          o.connect(g); g.connect(bellCtx.destination);
+          o.start(t + at); o.stop(t + at + p[1] + 0.05);
+        });
+      });
+    } catch (e) { /* no audio: the card's glow still says it worked */ }
+    if (navigator.vibrate) { try { navigator.vibrate([40, 60, 40]); } catch (e) { /* ignore */ } }
+  }
+
   // One card, moved into whichever between-questions screen is showing. It is
   // only there while the server would accept a ring (not mid-question, not after
   // the last question, not once the bell is spent).
@@ -326,6 +354,7 @@
   $('btn-bell').addEventListener('click', function () {
     if (bellPending || !state || !state.you) return;
     var on = state.you.bell !== 'armed';
+    if (on) ringOnPhone();
     var btn = $('btn-bell');
     bellPending = true;
     btn.disabled = true;
