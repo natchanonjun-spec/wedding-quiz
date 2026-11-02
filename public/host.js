@@ -107,6 +107,26 @@
     if (window.WQSound.isEnabled() && state && state.phase === 'lobby') snd('lobby');
   });
 
+  // Lobby music: each click moves to the next style and, in the lobby, plays it
+  // straight away so the choice can be made by ear.
+  function musicLabel() {
+    var S = window.WQSound;
+    if (!S || !S.lobbyStyles) { $('c-music').hidden = true; return; }
+    var cur = S.lobbyStyle();
+    var name = S.lobbyStyles().filter(function (x) { return x.id === cur; })[0];
+    $('c-music').textContent = '🎵 เพลงห้องรอ: ' + (name ? name.name : cur);
+  }
+  musicLabel();
+  $('c-music').addEventListener('click', function () {
+    var S = window.WQSound;
+    if (!S || !S.lobbyStyles) return;
+    var list = S.lobbyStyles().map(function (x) { return x.id; });
+    S.setLobbyStyle(list[(list.indexOf(S.lobbyStyle()) + 1) % list.length]);
+    musicLabel();
+    S.unlock();
+    if (S.isEnabled() && state && state.phase === 'lobby') snd('lobby');
+  });
+
   $('c-skip').addEventListener('click', function () { socket.emit('host:skip'); });
   $('c-next').addEventListener('click', function () { socket.emit('host:next'); });
   $('c-lock').addEventListener('click', function () {

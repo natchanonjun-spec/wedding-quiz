@@ -24,8 +24,8 @@
   var bedNextTime = 0;
   var lastTickAt = 0;        // guards the per-frame tick scheduler
   var lastReadyBeep = -1;
-  var lastJoinAt = -1;
-  var lastBellAt = -1;       // same idea for bellRing when many guests ring at once       // spaces out guestJoin plings during the join rush
+  var lastJoinAt = -1;       // spaces out guestJoin plings during the join rush
+  var lastBellAt = -1;       // same idea for bellRing when many guests ring at once
   var unlockWatchers = [];
   var tensionBuffer = null;      // decoded public/audio/tension.mp3, once loaded
   var tensionBufferPromise = null;
@@ -269,6 +269,112 @@
     }
   }
 
+  /* More lobby music, picked on the projector (the 🎵 button) and remembered.
+   * Each style is data plus one function that plays a single eighth-note step;
+   * the same look-ahead scheduler runs whichever is chosen, so all of them loop
+   * forever with no gap and no files to load. Notes are MIDI numbers. */
+  function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  var _ = null;   // a rest
+
+  // 8-bit town: a warm pixel-RPG theme in F that matches the projector's art.
+  var CHIP = {
+    bpm: 104, steps: 8,
+    chords: [[65, 69, 72], [62, 65, 69], [58, 62, 65], [60, 64, 67], [65, 69, 72], [62, 65, 69], [58, 62, 65], [65, 69, 72]],
+    bass: [41, 38, 34, 36, 41, 38, 34, 41],
+    lead: [[69, _, 72, _, 77, _, 76, 74], [72, _, 69, _, 65, _, 69, _], [70, _, 74, _, 77, _, 74, 70], [72, _, _, _, 67, _, 64, _],
+           [69, _, 72, _, 77, _, 79, 81], [79, _, 77, _, 74, _, 77, _], [74, _, 70, _, 72, _, 76, _], [77, _, _, _, _, _, _, _]]
+  };
+  CHIP.bars = CHIP.lead.length;
+  CHIP.play = function (step, at, len) {
+    var b = Math.floor(step / 8), s = step % 8;
+    var root = CHIP.bass[b] + (b === 6 && s >= 4 ? 2 : 0);          // Bb -> C for the turnaround
+    var note = CHIP.lead[b][s];
+    if (note) {
+      tone(hz(note), at, len * 1.6, 'square', 0.045, null, bed);
+      tone(hz(note + 12), at + len * 0.5, len * 0.9, 'triangle', 0.012, null, bed);   // a little echo above
+    }
+    if (s % 2 === 1) tone(hz(CHIP.chords[b][(s >> 1) % 3] + 12), at, len * 0.8, 'triangle', 0.03, null, bed);   // off-beat arp
+    if (s === 0 || s === 4) tone(hz(root + (s === 4 ? 12 : 0)), at, len * 1.8, 'triangle', 0.16, null, bed);
+    if (s === 2 || s === 6) tone(hz(root + 7), at, len * 1.2, 'triangle', 0.10, null, bed);
+    if (s === 0 || s === 4) tone(110, at, 0.09, 'sine', 0.14, 50, bed);   // soft chip kick
+    if (s === 2 || s === 6) noise(at, 0.06, 0.07, 3000, bed);            // soft snare
+    noise(at, 0.02, s % 2 ? 0.025 : 0.015, 9000, bed);                   // hat
+  };
+
+  // Music box waltz: celesta bells over a gentle one-two-three, no drums.
+  var WALTZ = {
+    bpm: 92, steps: 6,
+    chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62], [60, 64, 67], [52, 55, 59], [53, 57, 60], [60, 64, 67]],
+    bass: [36, 33, 29, 31, 36, 28, 29, 36],
+    lead: [[76, _, _, _, 79, _], [81, _, 79, _, 76, _], [77, _, _, _, 81, _], [79, _, _, _, 74, _],
+           [76, _, 79, _, 84, _], [83, _, 81, _, 79, _], [81, _, 77, _, 74, _], [72, _, _, _, _, _]]
+  };
+  WALTZ.bars = WALTZ.lead.length;
+  WALTZ.play = function (step, at, len) {
+    var b = Math.floor(step / 6), s = step % 6;
+    var note = WALTZ.lead[b][s];
+    if (note) {                                    // a bell: the note plus its quieter overtones
+      tone(hz(note), at, 1.8, 'sine', 0.09, null, bed);
+      tone(hz(note) * 2, at, 0.9, 'sine', 0.025, null, bed);
+      tone(hz(note) * 3.01, at, 0.35, 'sine', 0.01, null, bed);
+    }
+    var chord = WALTZ.chords[b];
+    if (b === 6 && s >= 3) chord = [55, 59, 62];   // F -> G on the last beat before home
+    if (s === 0) tone(hz(WALTZ.bass[b]), at, len * 2.6, 'triangle', 0.18, null, bed);
+    if (s === 2 || s === 4) {
+      for (var i = 0; i < 3; i++) tone(hz(chord[i]), at, len * 1.4, 'triangle', 0.028, null, bed);
+    }
+    if (s === 0) for (var j = 0; j < 3; j++) tone(hz(chord[j] + 12), at, len * 6, 'sine', 0.008, null, bed);   // faint pad
+  };
+
+  // Bossa lounge: electric-piano comping, a walking two-feel bass, rim and shaker.
+  var BOSSA = {
+    bpm: 116, steps: 8,
+    chords: [[60, 64, 67, 71], [57, 60, 64, 67], [62, 65, 69, 72], [59, 62, 65, 67],
+             [59, 62, 64, 67], [61, 64, 67, 69], [62, 65, 69, 72], [59, 62, 65, 67]],
+    bass: [36, 33, 38, 31, 40, 33, 38, 31],
+    lead: [[76, _, _, 79, _, _, 83, _], [81, _, _, _, 79, _, 76, _], [77, _, _, 81, _, _, 84, _], [83, _, 81, _, 79, _, 77, _],
+           [79, _, _, 83, _, _, 86, _], [85, _, _, _, 81, _, 79, _], [77, _, _, _, 81, _, _, _], [79, _, _, 77, _, 74, _, 71]]
+  };
+  BOSSA.bars = BOSSA.lead.length;
+  var BOSSA_COMP = [[0, 3, 6], [2, 4, 7]];        // the bossa push, alternating bars
+  BOSSA.play = function (step, at, len) {
+    var b = Math.floor(step / 8), s = step % 8;
+    var note = BOSSA.lead[b][s];
+    if (note) {                                    // vibraphone-ish: sine with a slow wobble
+      tone(hz(note), at, len * 3, 'sine', 0.07, null, bed);
+      tone(hz(note) * 1.004, at + 0.02, len * 2.5, 'sine', 0.03, null, bed);
+    }
+    if (BOSSA_COMP[b % 2].indexOf(s) >= 0) {
+      for (var i = 0; i < 4; i++) {
+        tone(hz(BOSSA.chords[b][i]), at, len * 1.5, 'sine', 0.035, null, bed);
+        tone(hz(BOSSA.chords[b][i] + 12), at, len * 0.6, 'triangle', 0.008, null, bed);   // the tine "bark"
+      }
+    }
+    var root = BOSSA.bass[b];
+    if (s === 0 || s === 4) tone(hz(root), at, len * 2.2, 'sine', 0.22, null, bed);
+    if (s === 3 || s === 7) tone(hz(root + 7), at, len * 1.2, 'sine', 0.16, null, bed);
+    if (s === 3 || s === 6) noise(at, 0.025, 0.06, 1900, bed);        // rim click
+    noise(at, 0.04, s % 2 ? 0.03 : 0.018, 7000, bed);                 // shaker
+  };
+
+  // The original countdown-to-the-party loop, kept as one of the choices.
+  var PARTY = { bpm: BED_BPM, steps: BED_STEPS_PER_BAR, bars: BED_BARS.length,
+                play: function (step, at) { bedStepAt(step, at); } };
+
+  var LOBBY_STYLES = {
+    chip:  { name: '8-bit เมืองพิกเซล', style: CHIP },
+    waltz: { name: 'กล่องดนตรีวอลทซ์', style: WALTZ },
+    bossa: { name: 'บอสซาโนวาเลานจ์', style: BOSSA },
+    party: { name: 'ปาร์ตี้ (เพลงเดิม)', style: PARTY }
+  };
+  var LOBBY_ORDER = ['chip', 'waltz', 'bossa', 'party'];
+  var lobbyStyle = 'chip';
+  try {
+    var savedStyle = localStorage.getItem('wq.lobbyMusic');
+    if (LOBBY_STYLES[savedStyle]) lobbyStyle = savedStyle;
+  } catch (e) { /* private mode - default */ }
+
   var API = {
     // Called from the login click, which is the gesture the browser wants.
     unlock: function () { ensure(); },
@@ -305,6 +411,9 @@
     lobby: function () {
       if (!ensure()) return;
       API.stopAll();
+      var style = LOBBY_STYLES[lobbyStyle].style;
+      var stepLen = (60 / style.bpm) / 2;
+      var loopSteps = style.bars * style.steps;
 
       bed = ctx.createGain();
       bed.gain.value = 0.0001;
@@ -319,9 +428,9 @@
           if (!bed) { clearLoop(); return; }
           // Stay about a fifth of a second ahead of the playhead.
           while (bedNextTime < ctx.currentTime + 0.2) {
-            bedStepAt(bedStep, bedNextTime);
-            bedNextTime += BED_STEP;
-            bedStep = (bedStep + 1) % (BED_BARS.length * BED_STEPS_PER_BAR);
+            style.play(bedStep, bedNextTime, stepLen);
+            bedNextTime += stepLen;
+            bedStep = (bedStep + 1) % loopSteps;
           }
         } catch (e) {
           clearLoop();          // fail silent and stay stopped, never once per tick
@@ -329,6 +438,17 @@
       };
       schedule();
       loopTimer = setInterval(schedule, 25);
+    },
+
+    // Which lobby music plays: the projector's 🎵 button walks through these.
+    lobbyStyles: function () {
+      return LOBBY_ORDER.map(function (k) { return { id: k, name: LOBBY_STYLES[k].name }; });
+    },
+    lobbyStyle: function () { return lobbyStyle; },
+    setLobbyStyle: function (id) {
+      if (!LOBBY_STYLES[id]) return;
+      lobbyStyle = id;
+      try { localStorage.setItem('wq.lobbyMusic', id); } catch (e) { /* ignore */ }
     },
 
     // 3-2-1 before the answers unlock: a big drum hit per second, tightening
