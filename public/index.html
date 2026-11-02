@@ -176,6 +176,27 @@
   .rank { font-size: 56px; color: var(--accent); line-height: 1.1; text-shadow: 0 5px 0 var(--outline); }
   .thanks { margin: 0; }
 
+  /* ---------- character picker ---------- */
+  #s-look .grow { gap: 14px; }
+  #s-look .me-wrap .sprite { --s: 5; }
+  .lookpanel { display: grid; gap: 8px; }
+  .lookpanel .lbl { margin: 6px 0 0; }
+  .lookpanel .lbl:first-child { margin-top: 0; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .segbtn { min-height: 52px; border-radius: var(--r); background: rgba(255, 246, 230, .1); color: var(--cream);
+            font-size: 18px; font-weight: 800; box-shadow: 0 0 0 3px var(--inner); }
+  .segbtn[aria-checked="true"] { background: var(--accent); color: var(--ink); box-shadow: 0 0 0 3px var(--cream); }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .sw { aspect-ratio: 1; min-height: 44px; border-radius: var(--r); box-shadow: 0 0 0 3px var(--outline);
+        position: relative; }
+  .sw[aria-checked="true"] { box-shadow: 0 0 0 3px var(--outline), 0 0 0 6px var(--cream); }
+  .sw[aria-checked="true"]::after { content: ''; position: absolute; left: 50%; top: 50%; width: 10px; height: 18px;
+        border: solid var(--cream); border-width: 0 4px 4px 0; translate: -50% -60%; rotate: 45deg;
+        filter: drop-shadow(0 0 2px #000); }
+  .linkbtn { background: none; border: none; box-shadow: none; color: var(--muted); font-size: 16px; font-weight: 700; text-decoration: underline;
+             padding: 10px; min-height: 44px; justify-self: center; }
+  .segbtn:focus-visible, .sw:focus-visible, .linkbtn:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+
   /* ---------- rules ---------- */
   .rules { text-align: left; display: grid; gap: 6px; }
   .rules h3 { margin: 6px 0 0; font-size: 18px; font-weight: 900; color: var(--accent); }
@@ -249,9 +270,35 @@
         <input id="in-name" class="field" maxlength="18" autocomplete="off" enterkeyhint="go"
                aria-describedby="join-err">
         <div class="gap"></div>
-        <button id="btn-join" class="btn block">เข้าร่วมเกม</button>
+        <button id="btn-join" class="btn block">ถัดไป: เลือกตัวละคร</button>
         <p id="join-err" class="error center" role="alert"></p>
       </div>
+    </div>
+  </section>
+
+  <!-- CHARACTER: picked after the name, before joining -->
+  <section id="s-look" class="screen">
+    <div class="grow">
+      <div class="center"><span class="pill gold">เลือกตัวละครของคุณ</span></div>
+      <div class="me-wrap idle">
+        <div class="sprite" id="look-sprite" aria-hidden="true"></div>
+        <div class="nametag" id="look-name"></div>
+      </div>
+      <div class="panel lookpanel">
+        <p class="lbl" id="lbl-g">เพศ</p>
+        <div class="seg" role="radiogroup" aria-labelledby="lbl-g">
+          <button type="button" class="segbtn" data-g="m" role="radio" aria-checked="false">ผู้ชาย</button>
+          <button type="button" class="segbtn" data-g="f" role="radio" aria-checked="false">ผู้หญิง</button>
+        </div>
+        <p class="lbl" id="lbl-top">สีเสื้อ</p>
+        <div class="swatches" id="sw-top" role="radiogroup" aria-labelledby="lbl-top"></div>
+        <p class="lbl" id="lbl-bottom">สีกางเกง</p>
+        <div class="swatches" id="sw-bottom" role="radiogroup" aria-labelledby="lbl-bottom"></div>
+        <button type="button" id="btn-reroll" class="linkbtn">สุ่มหน้าตาและทรงผมใหม่</button>
+      </div>
+      <button id="btn-look-join" class="btn block">เข้าร่วมเกม</button>
+      <p id="look-err" class="error center" role="alert"></p>
+      <button type="button" id="btn-look-back" class="linkbtn">← แก้ PIN หรือชื่อ</button>
     </div>
   </section>
 

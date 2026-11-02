@@ -257,6 +257,45 @@
   var ACCS_BY_OUTFIT = { suit: ['none', 'none', 'flower', 'hat'], gown: ['none', 'flower', 'flower', 'none'],
                          dress: ['none', 'flower', 'hat', 'none'] };
 
+  /* Clothes a guest can pick on their phone: [base, shade] and a Thai name for
+     the swatch's label. Index order is part of the saved data - append only. */
+  var CLOTHES = [
+    ['#2e2f3a', '#1d1e26', 'ดำ'], ['#2f4468', '#1f2f4a', 'กรมท่า'], ['#6e6e78', '#4f4f58', 'เทา'],
+    ['#fbf7f0', '#e2dbcd', 'ขาว'], ['#c9b48f', '#a38e6a', 'ครีม'], ['#6b2f3a', '#4b1f28', 'แดงเลือดหมู'],
+    ['#c0392b', '#8e2a1f', 'แดง'], ['#4a5a3e', '#34412b', 'เขียว'], ['#f2b8c6', '#d68ea2', 'ชมพู'],
+    ['#c7b6e6', '#a28fc6', 'ม่วง'], ['#b3d3ec', '#89b0d2', 'ฟ้า'], ['#f3dfb0', '#d6bd86', 'เหลือง']
+  ];
+  var CHOICE_STYLES = { m: ['short', 'curly', 'pony'], f: ['long', 'bun', 'pony', 'curly', 'short'] };
+  var CHOICE_ACCS = { m: ['none', 'none', 'flower', 'hat'], f: ['none', 'flower', 'flower', 'none'] };
+
+  // A guest's picks ({g, top, bottom, skin, hair, style, acc}) as a makeSheet()
+  // override. Anything missing or out of range falls back to the random look.
+  function choiceForce(c) {
+    if (!c || (c.g !== 'm' && c.g !== 'f')) return null;
+    var f = { outfit: c.g === 'f' ? 'gown' : 'suit' };
+    if (CLOTHES[c.top]) f.color = CLOTHES[c.top];
+    if (CLOTHES[c.bottom]) f.bottom = CLOTHES[c.bottom];
+    if (SKINS[c.skin]) f.skin = c.skin;
+    if (HAIRS[c.hair]) f.hair = c.hair;
+    if (CHOICE_STYLES[c.g].indexOf(c.style) >= 0) f.style = c.style;
+    if (CHOICE_ACCS[c.g].indexOf(c.acc) >= 0) f.acc = c.acc;
+    return f;
+  }
+
+  // A fresh random face and outfit for the phone's character picker.
+  function randomChoice(keep) {
+    var r = function (m) { return Math.floor(Math.random() * m); };
+    var g = (keep && keep.g) || (r(2) ? 'f' : 'm');
+    return {
+      g: g,
+      top: keep && keep.top != null ? keep.top : r(CLOTHES.length),
+      bottom: keep && keep.bottom != null ? keep.bottom : r(CLOTHES.length),
+      skin: r(SKINS.length), hair: r(HAIRS.length),
+      style: CHOICE_STYLES[g][r(CHOICE_STYLES[g].length)],
+      acc: CHOICE_ACCS[g][r(CHOICE_ACCS[g].length)]
+    };
+  }
+
   function lookFor(seed) {
     var r = rng(seed);
     var outfit = OUTFITS[r(OUTFITS.length)];
@@ -274,6 +313,13 @@
     var front = facing === 'front';
     var look = lookFor(seed);
     if (force) for (var key in force) look[key] = force[key];
+    // Forcing the outfit (a guest picking ชาย/หญิง) can leave a hair style or
+    // accessory from the other outfit's list; swap those for valid ones.
+    if (force && force.outfit && STYLES_BY_OUTFIT[look.outfit]) {
+      var okStyles = STYLES_BY_OUTFIT[look.outfit], okAccs = ACCS_BY_OUTFIT[look.outfit];
+      if (okStyles.indexOf(look.style) < 0) look.style = okStyles[(seed >>> 0) % okStyles.length];
+      if (look.acc !== 'veil' && okAccs.indexOf(look.acc) < 0) look.acc = okAccs[(seed >>> 0) % okAccs.length];
+    }
     var sk = SKINS[look.skin], hr = HAIRS[look.hair], fl = FLOWERS[look.flower];
     var outfitCol = look.outfit === 'suit' ? SUITS[look.suit] : GOWNS[look.gown];
     if (look.color) outfitCol = look.color;                 // e.g. the bride's white
@@ -287,6 +333,12 @@
     };
     // Sleeves match the jacket for suits; gowns and dresses have bare arms.
     var armMap = Object.assign({}, map, { q: look.outfit === 'suit' ? map.T : map.s });
+    // A chosen bottom colour: trousers (p/P) or the skirt (painted from t/T).
+    var skirtMap = map;
+    if (look.bottom) {
+      map.p = hex(look.bottom[0]); map.P = hex(look.bottom[1]);
+      skirtMap = Object.assign({}, map, { t: hex(look.bottom[0]), T: hex(look.bottom[1]) });
+    }
 
     var FW = W + 2, FH = H + 2;
     var cv = document.createElement('canvas');
@@ -308,7 +360,7 @@
           paint(F_SUIT_TORSO, map, px, 0, 16 + dy);
           paint(F_ARMS_SUIT, armMap, px, 0, 17 + dy);
         } else {
-          paint(look.outfit === 'gown' ? F_GOWN_SKIRT : F_SHORT_SKIRT, map, px, 0, 24);
+          paint(look.outfit === 'gown' ? F_GOWN_SKIRT : F_SHORT_SKIRT, skirtMap, px, 0, 24);
           paint(F_GOWN_TORSO, map, px, 0, 16 + dy);
           paint(F_ARMS_BARE, armMap, px, 0, 17 + dy);
         }
@@ -323,7 +375,7 @@
           paint(TROUSERS[f], map, px, 0, 24 + dy);
         } else {
           paint(GOWN_TORSO, map, px, 0, 16 + dy);
-          paint((look.outfit === 'gown' ? GOWN_SKIRT : SHORT_SKIRT)[f], map, px, 0, 24 + dy);
+          paint((look.outfit === 'gown' ? GOWN_SKIRT : SHORT_SKIRT)[f], skirtMap, px, 0, 24 + dy);
         }
         paint(ARMS[ARM_FOR_FRAME[f]], armMap, px, 3, 17 + dy);
         if (look.acc !== 'none' && look.acc !== 'veil') paint(ACC[look.acc], map, px, 0, dy);
@@ -417,6 +469,6 @@
     return COUPLE.map(function (look, i) { return makeSheet(7 + i, look, facing); });
   }
 
-  window.PixelFolk = { makeSheet: makeSheet, icon: icon, namedIcon: namedIcon, ICONS: ICONS, hashId: hashId,
+  window.PixelFolk = { CLOTHES: CLOTHES, choiceForce: choiceForce, randomChoice: randomChoice, makeSheet: makeSheet, icon: icon, namedIcon: namedIcon, ICONS: ICONS, hashId: hashId,
                        coupleSheets: coupleSheets, FRAME_W: W + 2, FRAME_H: H + 2 };
 })();

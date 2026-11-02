@@ -38,11 +38,13 @@
   // The guest's own character (the one walking on the projector for them, from
   // the same id hash), and the pixel icons, are drawn once and reused.
   var sheetUrl = null, sheetFor = null, iconUrls = {};
-  function paintMe(id) {
+  function paintMe(id, look) {
     if (!window.PixelFolk || !id) return;
-    if (sheetFor !== id) {
-      sheetFor = id;
-      sheetUrl = 'url(' + window.PixelFolk.makeSheet(window.PixelFolk.hashId(id), null, 'front').toDataURL() + ')';
+    var key = id + JSON.stringify(look || null);
+    if (sheetFor !== key) {
+      sheetFor = key;
+      sheetUrl = 'url(' + window.PixelFolk.makeSheet(window.PixelFolk.hashId(id),
+        window.PixelFolk.choiceForce(look), 'front').toDataURL() + ')';
     }
     ['lobby-sprite', 'board-sprite', 'end-sprite'].forEach(function (el) { $(el).style.backgroundImage = sheetUrl; });
   }
@@ -156,39 +158,110 @@
   // during Render's ~50s cold start emitted into nothing: no ack, no error, no
   // feedback, and the button silently re-enabled 800ms later.
   function setConnectionUi(connected) {
-    var btn = $('btn-join');
+    var btn = $('btn-join'), go = $('btn-look-join');
     if (joinPending) return;
     btn.disabled = !connected;
-    btn.textContent = connected ? 'เข้าร่วมเกม' : 'กำลังเชื่อมต่อ…';
+    btn.textContent = connected ? 'ถัดไป: เลือกตัวละคร' : 'กำลังเชื่อมต่อ…';
+    go.disabled = !connected;
+    go.textContent = connected ? 'เข้าร่วมเกม' : 'กำลังเชื่อมต่อ…';
   }
 
+  /* ---- step 2: the character picker ---- */
+  var myLook = null;
+  function lookSwatches(boxId, field) {
+    var box = $(boxId);
+    if (!window.PixelFolk || box.childNodes.length) return;
+    window.PixelFolk.CLOTHES.forEach(function (c, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sw';
+      b.style.background = 'linear-gradient(135deg, ' + c[0] + ' 55%, ' + c[1] + ' 55%)';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-label', c[2]);
+      b.addEventListener('click', function () { myLook[field] = i; renderLook(); });
+      box.appendChild(b);
+    });
+  }
+  function renderLook() {
+    if (!window.PixelFolk || !myLook) return;
+    $('look-sprite').style.backgroundImage = 'url(' +
+      window.PixelFolk.makeSheet(1, window.PixelFolk.choiceForce(myLook), 'front').toDataURL() + ')';
+    var segs = document.querySelectorAll('.segbtn');
+    for (var i = 0; i < segs.length; i++) segs[i].setAttribute('aria-checked', String(segs[i].dataset.g === myLook.g));
+    $('lbl-bottom').textContent = myLook.g === 'f' ? 'สีกระโปรง' : 'สีกางเกง';
+    [['sw-top', 'top'], ['sw-bottom', 'bottom']].forEach(function (pair) {
+      var sws = $(pair[0]).childNodes;
+      for (var j = 0; j < sws.length; j++) sws[j].setAttribute('aria-checked', String(j === myLook[pair[1]]));
+    });
+  }
+  (function wireLook() {
+    var segs = document.querySelectorAll('.segbtn');
+    for (var i = 0; i < segs.length; i++) {
+      segs[i].addEventListener('click', function () {
+        if (!myLook || myLook.g === this.dataset.g) return;
+        // A new gender gets a hair style and accessory that suit it; colours stay.
+        myLook = window.PixelFolk.randomChoice({ g: this.dataset.g, top: myLook.top, bottom: myLook.bottom });
+        renderLook();
+      });
+    }
+    $('btn-reroll').addEventListener('click', function () {
+      if (!myLook) return;
+      var keep = { g: myLook.g, top: myLook.top, bottom: myLook.bottom };
+      myLook = window.PixelFolk.randomChoice(keep);
+      renderLook();
+    });
+    $('btn-look-back').addEventListener('click', function () { show('s-join'); });
+  })();
+
+  // Step 1: PIN and name checked here, then on to picking a character.
   $('btn-join').addEventListener('click', function () {
     if (joinPending) return;
     var pin = $('in-pin').value.replace(/\D/g, '');
     var name = $('in-name').value.trim();
     if (!pin) { setJoinError('ใส่ PIN ก่อนนะ', 'pin'); return; }
     if (!name) { setJoinError('ใส่ชื่อเล่นด้วยนะ', 'name'); return; }
+    setJoinError('');
+    if (!window.PixelFolk) { $('btn-look-join').click(); return; }   // no drawing code: join as before
+    if (!myLook) myLook = window.PixelFolk.randomChoice();
+    lookSwatches('sw-top', 'top');
+    lookSwatches('sw-bottom', 'bottom');
+    $('look-name').textContent = name;
+    $('look-err').textContent = '';
+    renderLook();
+    show('s-look');
+  });
+
+  // Step 2: join with the picked character.
+  $('btn-look-join').addEventListener('click', function () {
+    if (joinPending) return;
+    var pin = $('in-pin').value.replace(/\D/g, '');
+    var name = $('in-name').value.trim();
+    var go = $('btn-look-join');
 
     if (!socket.connected) {
-      setJoinError('ยังเชื่อมต่อไม่ได้ รอสักครู่แล้วลองใหม่');
+      $('look-err').textContent = 'ยังเชื่อมต่อไม่ได้ รอสักครู่แล้วลองใหม่';
       socket.connect();
       return;
     }
 
     joinPending = true;
-    $('btn-join').disabled = true;
-    $('btn-join').textContent = 'กำลังเข้าร่วม…';
-    setJoinError('');
+    go.disabled = true;
+    go.textContent = 'กำลังเข้าร่วม…';
+    $('look-err').textContent = '';
 
     // Send the id we already hold (from a previous attempt or a restored session) so
     // a retry resumes that guest instead of minting a second one for the same person.
     var saved = restore();
-    var knownId = me.id || (saved && saved.id) || null;
+    var knownId = me.id || (saved && saved.pin === pin && saved.id) || null;
 
-    attemptJoin({ pin: pin, name: name, playerId: knownId }, function (err) {
-      $('btn-join').textContent = 'เข้าร่วมเกม';
-      $('btn-join').disabled = !socket.connected;
-      if (err) setJoinError(ERRORS[err] || 'เข้าร่วมไม่สำเร็จ ลองใหม่อีกครั้ง', ERROR_FIELD[err]);
+    attemptJoin({ pin: pin, name: name, playerId: knownId, look: myLook }, function (err) {
+      go.textContent = 'เข้าร่วมเกม';
+      go.disabled = !socket.connected;
+      if (!err) return;
+      var msg = ERRORS[err] || 'เข้าร่วมไม่สำเร็จ ลองใหม่อีกครั้ง';
+      // A wrong PIN or name is fixed on the first screen, so go back there.
+      if (ERROR_FIELD[err]) { show('s-join'); setJoinError(msg, ERROR_FIELD[err]); }
+      else $('look-err').textContent = msg;
     });
   });
 
@@ -444,13 +517,14 @@
     if (!state) return;
 
     if (!joined || !state.you) {
-      show('s-join');
+      // Mid-pick, stay on the character screen; otherwise back to the join form.
+      if (!$('s-look').classList.contains('active')) show('s-join');
       stopTimerLoop();
       return;
     }
 
     var you = state.you;
-    paintMe(you.id);
+    paintMe(you.id, you.look);
     $('q-name').textContent = you.name;
     $('q-score').textContent = you.score.toLocaleString('th-TH');
 
@@ -589,17 +663,22 @@
   socket.on('hello', function (d) {
     clockOffset = d.serverNow - Date.now();
     var saved = restore();
-    if (saved && saved.id && saved.pin) {
-      $('in-pin').value = saved.pin;
-      $('in-name').value = saved.name || '';
-      joinPending = true;
-      attemptJoin({ pin: saved.pin, name: saved.name, playerId: saved.id }, function (err) {
-        if (!err) return;
-        joined = false;
-        setConnectionUi(socket.connected);
-        show('s-join');
-      });
-    }
+    // The PIN in the QR (the link they just scanned) is the game on the screen
+    // NOW. A PIN remembered from an earlier game - a rehearsal, yesterday's test -
+    // used to overwrite it here, so guests saw a PIN that did not match the
+    // projector. Only resume the saved guest when it is the same game.
+    var qrPin = urlPin ? urlPin.replace(/\D/g, '').slice(0, 6) : '';
+    var pin = qrPin || (saved && saved.pin) || '';
+    if (saved && saved.name && !$('in-name').value) $('in-name').value = saved.name;
+    if (pin) $('in-pin').value = pin;
+    if (joined || !(saved && saved.id && saved.pin && saved.pin === pin)) return;
+    joinPending = true;
+    attemptJoin({ pin: pin, name: saved.name, playerId: saved.id }, function (err) {
+      if (!err) return;
+      joined = false;
+      setConnectionUi(socket.connected);
+      show('s-join');
+    });
   });
 
   socket.on('state', function (s) {

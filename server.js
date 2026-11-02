@@ -167,7 +167,7 @@ function ranked() {
   return playerList()
     .slice()
     .sort((a, b) => b.score - a.score || a.joinedAt - b.joinedAt)
-    .map((p, i) => ({ id: p.id, name: p.name, score: p.score, rank: i + 1, streak: p.streak }));
+    .map((p, i) => ({ id: p.id, name: p.name, score: p.score, rank: i + 1, streak: p.streak, look: p.look || null }));
 }
 
 function rankOf(playerId) {
@@ -188,7 +188,7 @@ function snapshot() {
       index: game.index,
       joinLocked: game.joinLocked,
       players: playerList().map((p) => ({
-        id: p.id, name: p.name, score: p.score, streak: p.streak, joinedAt: p.joinedAt, bell: p.bell || null,
+        id: p.id, name: p.name, score: p.score, streak: p.streak, joinedAt: p.joinedAt, bell: p.bell || null, look: p.look || null,
       })),
     }), 'utf8');
   } catch (err) {
@@ -230,6 +230,7 @@ function restoreSnapshot() {
       connected: false,
       lastResult: null,
       bell: p.bell === 'armed' || p.bell === 'used' ? p.bell : null,
+      look: cleanLook(p.look),
     });
   }
   console.log('Restored ' + game.players.size + ' players from snapshot (phase=' + game.phase + ').');
@@ -400,7 +401,7 @@ function hostState() {
   const state = baseState();
   state.isHost = true;
   state.players = playerList().map((p) => ({
-    id: p.id, name: p.name, score: p.score, connected: p.connected,
+    id: p.id, name: p.name, score: p.score, connected: p.connected, look: p.look || null,
   }));
   state.answered = game.answers.size;
   state.bellsArmed = bellsArmed();
@@ -428,6 +429,7 @@ function playerState(player) {
       streak: player.streak,
       rank: rankOf(player.id),
       bell: player.bell || null,
+      look: player.look || null,
     }
     : null;
   state.bellOpen = bellOpen();
@@ -467,6 +469,7 @@ function emitRoster(op, player) {
       name: player.name,
       score: player.score || 0,
       connected: !!player.connected,
+      look: player.look || null,
     },
     playerCount: game.players.size,
   });
@@ -609,6 +612,26 @@ function maybeEarlyReveal() {
  * Sockets
  * ------------------------------------------------------------------ */
 
+// What a guest picked for their character (see PixelFolk.choiceForce). Kept only
+// if every field is something the drawing code knows; otherwise the guest
+// simply gets the random look from their id, as before.
+const LOOK_RANGES = { top: 12, bottom: 12, skin: 4, hair: 8 };
+const LOOK_STYLES = { m: ['short', 'curly', 'pony'], f: ['long', 'bun', 'pony', 'curly', 'short'] };
+const LOOK_ACCS = ['none', 'flower', 'hat'];
+function cleanLook(raw) {
+  if (!raw || typeof raw !== 'object' || (raw.g !== 'm' && raw.g !== 'f')) return null;
+  const look = { g: raw.g };
+  for (const k of Object.keys(LOOK_RANGES)) {
+    const v = Number(raw[k]);
+    if (!Number.isInteger(v) || v < 0 || v >= LOOK_RANGES[k]) return null;
+    look[k] = v;
+  }
+  if (!LOOK_STYLES[raw.g].includes(raw.style) || !LOOK_ACCS.includes(raw.acc)) return null;
+  look.style = raw.style;
+  look.acc = raw.acc;
+  return look;
+}
+
 function cleanName(raw) {
   return String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim().slice(0, 18);
 }
@@ -727,6 +750,7 @@ io.on('connection', (socket) => {
         connected: true,
         lastResult: null,
         bell: null,
+        look: cleanLook(payload && payload.look),
       };
       game.players.set(id, player);
     }

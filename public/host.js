@@ -306,7 +306,7 @@
 
     var sprite = document.createElement('div');
     sprite.className = 'sprite';
-    sprite.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(h).toDataURL() + ')';
+    sprite.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(h, window.PixelFolk.choiceForce(p.look)).toDataURL() + ')';
     sprite.style.animationDelay = -((h % 7) / 10) + 's';                        // feet out of step with each other
     el.appendChild(sprite);
 
@@ -809,7 +809,7 @@
       }
       var who = document.createElement('div');
       who.className = 'who';
-      who.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(hashId(r.id || r.name), null, 'front').toDataURL() + ')';
+      who.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(hashId(r.id || r.name), window.PixelFolk.choiceForce(r.look), 'front').toDataURL() + ')';
       stage.appendChild(aura);
       stage.appendChild(who);
 
