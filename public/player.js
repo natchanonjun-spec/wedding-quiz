@@ -469,6 +469,19 @@
         renderBell('slot-lobby');
         break;
 
+      case 'rules': {
+        stopTimerLoop();
+        var r = state.rules || {};
+        $('pr-n').textContent = r.questions || '';
+        $('pr-time').textContent = r.minTime === r.maxTime ? r.minTime : r.minTime + '-' + r.maxTime;
+        $('pr-bonus').textContent = r.bonus || 0;
+        $('pr-bonus-row').hidden = !r.bonus;
+        lastShownScore = you.score;
+        show('s-rules');
+        renderBell('slot-rules');
+        break;
+      }
+
       case 'question':
         if (state.hasAnswered) {
           stopTimerLoop();

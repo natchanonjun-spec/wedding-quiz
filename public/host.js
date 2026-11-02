@@ -51,7 +51,7 @@
   function view(name) {
     var changed = (name !== currentView);
     currentView = name;
-    ['lobby', 'q', 'reveal', 'board', 'end'].forEach(function (v) {
+    ['lobby', 'rules', 'q', 'reveal', 'board', 'end'].forEach(function (v) {
       var el = $('v-' + v);
       if (v === name) {
         el.style.display = '';
@@ -236,7 +236,7 @@
   var currentScene = 'lobby';
 
   function sceneFor(s) {
-    if (!s || s.phase === 'lobby') return 'lobby';
+    if (!s || s.phase === 'lobby' || s.phase === 'rules') return 'lobby';
     if (s.phase === 'ended') return 'night';
     var total = Math.max(1, s.questionCount || 1);
     if (s.phase === 'scoreboard' && (s.index || 0) >= total - 1) return 'city';
@@ -824,8 +824,35 @@
 
   /* ---------------- render ---------------- */
 
+  function WQSoundPlaying() {
+    var S = window.WQSound;
+    return !!(S && S.lobbyPlaying && S.lobbyPlaying());
+  }
+
+  // Fills the rules screen from the real game: question count, time range, how
+  // many bonus questions, the bell's penalty.
+  function renderRules() {
+    var r = state.rules;
+    if (!r) return;
+    var num = function (n) { return n.toLocaleString('th-TH'); };
+    $('r-n').textContent = r.questions;
+    $('r-time').textContent = r.minTime === r.maxTime ? r.minTime : r.minTime + '-' + r.maxTime;
+    $('r-streak').textContent = '+' + num(r.streakBonus);
+    $('r-streakcap').textContent = '+' + num(r.streakCap);
+    $('r-bonus').textContent = r.bonus;
+    $('r-bonus').parentNode.parentNode.hidden = !r.bonus;
+    $('r-pen').textContent = num(r.bellPenalty);
+    $('r-pen2').textContent = num(r.bellPenalty * 2);
+    if (window.PixelFolk && !$('r-bell').src) {
+      $('r-bell').src = window.PixelFolk.namedIcon('bell').toDataURL();
+      $('r-m1').src = window.PixelFolk.namedIcon('crown').toDataURL();
+      $('r-m2').src = window.PixelFolk.namedIcon('silver').toDataURL();
+      $('r-m3').src = window.PixelFolk.namedIcon('bronze').toDataURL();
+    }
+  }
+
   var LABELS = {
-    lobby: 'ห้องรอ', question: 'กำลังเล่น', reveal: 'เฉลย',
+    lobby: 'ห้องรอ', rules: 'กติกา', question: 'กำลังเล่น', reveal: 'เฉลย',
     scoreboard: 'อันดับ', ended: 'จบเกม',
   };
 
@@ -882,9 +909,9 @@
     $('c-start').textContent = state.phase === 'ended' ? '▶ เล่นใหม่อีกรอบ' : '▶ เริ่มเกม';
     $('c-back').style.display = (state.phase === 'lobby') ? 'none' : '';
     $('c-skip').disabled = state.phase !== 'question';
-    $('c-next').disabled = !(state.phase === 'reveal' || state.phase === 'scoreboard');
-    $('c-next').textContent = (state.phase === 'scoreboard' && state.index + 1 >= state.questionCount)
-      ? 'จบเกม 🏁' : 'ถัดไป →';
+    $('c-next').disabled = !(state.phase === 'rules' || state.phase === 'reveal' || state.phase === 'scoreboard');
+    $('c-next').textContent = state.phase === 'rules' ? 'เริ่มข้อ 1 →'
+      : (state.phase === 'scoreboard' && state.index + 1 >= state.questionCount) ? 'จบเกม 🏁' : 'ถัดไป →';
 
     if (state.phase !== 'question' && raf) { cancelAnimationFrame(raf); raf = null; $('clock').style.display = 'none'; }
     // The reveal repeats the question over the scene, so it stays blurred too.
@@ -903,6 +930,12 @@
         lastQuestionKey = '';
         if (view('lobby')) { cancelCelebration(); snd('lobby'); }
         renderLobby();
+        break;
+      case 'rules':
+        lastQuestionKey = '';
+        // The lobby music keeps playing under the rules (a reload here starts it again).
+        if (view('rules')) { cancelCelebration(); if (!WQSoundPlaying()) snd('lobby'); }
+        renderRules();
         break;
       case 'question': {
         if (view('q')) {

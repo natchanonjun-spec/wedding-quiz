@@ -23,6 +23,35 @@
   body > .wrap, .screen { min-height:0; }
   .grow { min-height:0; overflow:auto; }
 
+  /* ---------- rules ---------- */
+  /* Sized by the screen HEIGHT as well as width, so the whole page fits above
+     the host controls on a 16:9 projector without scrolling. "safe center"
+     keeps the title from being pushed off the top if it ever does overflow. */
+  #v-rules { justify-content:safe center; gap:1.6vh; }
+  .rules-title { text-align:center; margin:0; font-size:clamp(26px, min(3.4vw, 5vh), 56px); font-weight:900; color:var(--gold);
+                 text-shadow:0 4px 0 #4a2711; }
+  .rules-cols { display:grid; grid-template-columns:1fr 1fr; gap:1.6vh 18px; }
+  @media (max-width:900px) { .rules-cols { grid-template-columns:1fr; } }
+  .rules-box { padding:1.6vh 24px; }
+  .rules-box h3 { margin:0 0 .8vh; font-size:clamp(20px, min(2.2vw, 3.2vh), 34px); font-weight:900; color:#fff6e6; }
+  .rules-box ul { margin:0; padding-left:1.2em; display:grid; gap:.6vh; }
+  .rules-box li, .rule-row p { font-size:clamp(16px, min(1.6vw, 2.5vh), 27px); line-height:1.5; margin:0; }
+  .rules-box b { color:var(--gold); }
+  .rules-box b.good { color:#8ff0b4; }
+  .rules-box b.bad { color:#ffb9be; }
+  .rule-row { display:flex; gap:16px; align-items:flex-start; margin-bottom:1.2vh; }
+  .x2tag { flex:none; font-family:'Press Start 2P', monospace; font-size:clamp(18px, 1.6vw, 26px); color:#2a1a14;
+           background:#ffd84a; border-radius:6px; padding:10px 10px 8px; box-shadow:0 0 0 3px #4a2711; }
+  .ricon { width:clamp(36px, min(3.6vw, 5.5vh), 64px); height:auto; image-rendering:pixelated; flex:none;
+           filter:drop-shadow(0 3px 0 rgba(20,8,2,.5)); }
+  .rules-hint { margin:4px 0 0; font-size:clamp(16px, min(1.5vw, 2.3vh), 24px); font-weight:800; color:#8ff0b4; }
+  /* Winners on one line: the title, then crown / silver / bronze with their places. */
+  .rules-win { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:1vh clamp(24px, 4vw, 64px);
+               padding:1.4vh 26px; }
+  .rules-win h3 { margin:0; font-size:clamp(20px, min(2.2vw, 3.2vh), 34px); font-weight:900; color:#fff6e6; }
+  .medals { display:flex; gap:clamp(18px, 3vw, 48px); }
+  .medals > div { display:flex; align-items:center; gap:10px; font-size:clamp(16px, min(1.6vw, 2.5vh), 26px); font-weight:900; }
+
   .pin-hero { display:flex; gap:40px; align-items:center; justify-content:center; flex-wrap:wrap;
                flex:0 0 auto; }
   .pin-num {
@@ -461,6 +490,45 @@
         <div class="stat"><b id="st-players">0</b><span>ผู้เล่น</span></div>
         <div class="stat"><b id="st-q">0/0</b><span>ข้อ</span></div>
         <div id="clock" class="clock" style="display:none">20</div>
+      </div>
+    </div>
+
+    <!-- rules: read out before question 1 -->
+    <div id="v-rules" class="grow" style="display:none">
+      <h2 class="rules-title">กติกาการเล่น</h2>
+      <div class="rules-cols">
+        <div class="panel rules-box">
+          <h3>กฎทั่วไป</h3>
+          <ul>
+            <li>ทั้งหมด <b id="r-n">9</b> ข้อ ดูคำถามบนจอใหญ่ แล้ว<b>เลือกคำตอบบนมือถือ</b> (สีและรูปตรงกับบนจอ)</li>
+            <li>ข้อละ <b id="r-time">10-15</b> วินาที ตอบได้<b>ครั้งเดียว</b> เปลี่ยนคำตอบไม่ได้</li>
+            <li>ตอบถูกได้สูงสุด <b>1,000</b> คะแนน <b>ยิ่งตอบเร็ว ยิ่งได้เยอะ</b></li>
+            <li>ตอบถูกติดกัน ได้โบนัสเพิ่มข้อละ <b id="r-streak">+100</b> (สูงสุด <b id="r-streakcap">+500</b>)</li>
+            <li>ตอบผิดหรือไม่ทันเวลา ได้ 0 คะแนน</li>
+          </ul>
+        </div>
+        <div class="panel rules-box special">
+          <h3>กฎพิเศษ</h3>
+          <div class="rule-row">
+            <span class="x2tag">×2</span>
+            <p><b>รอบโบนัส:</b> <b id="r-bonus">2</b> ข้อสุดท้าย คะแนนคูณ 2</p>
+          </div>
+          <div class="rule-row">
+            <img class="ricon" id="r-bell" alt="">
+            <p><b>Ring the Bell:</b> ใช้ได้<b>ครั้งเดียว</b>ทั้งเกม กดบนมือถือ<b>ก่อนคำถามขึ้น</b>
+              ตอบถูก<b class="good"> ได้ ×2</b> ตอบผิดหรือไม่ตอบ<b class="bad"> โดนหัก <span id="r-pen">500</span></b>
+              (ข้อ ×2 หัก <span id="r-pen2">1,000</span>) คะแนนไม่ติดลบ</p>
+          </div>
+          <p class="rules-hint">กดกระดิ่งสำหรับข้อ 1 ได้ตั้งแต่ตอนนี้!</p>
+        </div>
+      </div>
+      <div class="panel rules-win">
+        <h3>ผู้ชนะ 3 คน ขึ้นโพเดียมตอนจบเกม</h3>
+        <div class="medals">
+          <div><img class="ricon" id="r-m1" alt=""><span>อันดับ 1</span></div>
+          <div><img class="ricon" id="r-m2" alt=""><span>อันดับ 2</span></div>
+          <div><img class="ricon" id="r-m3" alt=""><span>อันดับ 3</span></div>
+        </div>
       </div>
     </div>
 

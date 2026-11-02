@@ -136,7 +136,7 @@ function newPin() {
 
 const game = {
   pin: newPin(),
-  phase: 'lobby',     // lobby | question | reveal | scoreboard | ended
+  phase: 'lobby',     // lobby | rules | question | reveal | scoreboard | ended
   index: -1,
   startsAt: 0,
   endsAt: 0,
@@ -217,7 +217,8 @@ function restoreSnapshot() {
   game.joinLocked = !!s.joinLocked;
   game.index = Number.isInteger(s.index) ? s.index : -1;
   // Never resume mid-question: park on the scoreboard so the host can carry on cleanly.
-  game.phase = (s.phase === 'lobby' || s.phase === 'ended') ? s.phase : 'scoreboard';
+  game.phase = (s.phase === 'lobby' || s.phase === 'ended') ? s.phase
+    : s.phase === 'rules' ? 'lobby' : 'scoreboard';
 
   for (const p of s.players || []) {
     game.players.set(p.id, {
@@ -353,7 +354,7 @@ function revealPayload() {
 // The bell can only be rung between questions, for the one coming up: once a
 // question starts its text is on every phone, so betting then would not be blind.
 function bellOpen() {
-  return (game.phase === 'lobby' || game.phase === 'reveal' || game.phase === 'scoreboard') &&
+  return (game.phase === 'lobby' || game.phase === 'rules' || game.phase === 'reveal' || game.phase === 'scoreboard') &&
     game.index + 1 < game.questions.length;
 }
 
@@ -361,6 +362,21 @@ function bellsArmed() {
   let n = 0;
   for (const p of game.players.values()) if (p.bell === 'armed') n += 1;
   return n;
+}
+
+// The numbers the rules screen quotes, taken from the real questions so the
+// screen never promises 10 questions when there are 9.
+function rulesSummary() {
+  const times = game.questions.map((q) => q.timeLimit);
+  return {
+    questions: game.questions.length,
+    bonus: game.questions.filter((q) => q.points === 2).length,
+    minTime: Math.min(...times),
+    maxTime: Math.max(...times),
+    bellPenalty: BELL_PENALTY,
+    streakBonus: STREAK_BONUS,
+    streakCap: STREAK_CAP,
+  };
 }
 
 function baseState() {
@@ -376,6 +392,7 @@ function baseState() {
     serverNow: Date.now(),
     question: game.phase === 'question' ? publicQuestion() : null,
     bonusIntro: game.phase === 'question' && !!game.bonusIntro,
+    rules: game.phase === 'rules' ? rulesSummary() : null,
   };
 }
 
@@ -639,8 +656,12 @@ io.on('connection', (socket) => {
       p.lastResult = null;
       if (p.bell === 'used') p.bell = null;   // a bell rung in the lobby stays rung for question 1
     }
-    game.joinLocked = true;
-    startQuestion(0);
+    // The rules come first. Late guests can still join while they are read out;
+    // the doors close when question 1 starts.
+    game.phase = 'rules';
+    game.index = -1;
+    broadcastState();
+    snapshot();
   }));
 
   socket.on('host:skip', hostOnly(() => {
@@ -648,6 +669,10 @@ io.on('connection', (socket) => {
   }));
 
   socket.on('host:next', hostOnly(() => {
+    if (game.phase === 'rules') {
+      game.joinLocked = true;
+      return startQuestion(0);
+    }
     if (game.phase === 'reveal') return showScoreboard();
     if (game.phase === 'scoreboard') {
       if (game.index + 1 >= game.questions.length) return endGame();

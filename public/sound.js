@@ -445,6 +445,7 @@
       return LOBBY_ORDER.map(function (k) { return { id: k, name: LOBBY_STYLES[k].name }; });
     },
     lobbyStyle: function () { return lobbyStyle; },
+    lobbyPlaying: function () { return !!bed; },
     setLobbyStyle: function (id) {
       if (!LOBBY_STYLES[id]) return;
       lobbyStyle = id;

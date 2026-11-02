@@ -109,6 +109,11 @@ async function main() {
 
   /* ---- play rounds ---- */
   host.emit('host:start');
+  // Start opens the rules screen; "next" from there begins question 1.
+  for (let i = 0; i < 30 && hostState.phase !== 'rules'; i += 1) await sleep(100);
+  check('start opens the rules screen', hostState.phase === 'rules' && !!hostState.rules,
+    hostState.rules ? `${hostState.rules.questions} questions, ${hostState.rules.bonus} bonus` : hostState.phase);
+  host.emit('host:next');
 
   for (let round = 0; round < ROUNDS; round += 1) {
     // wait for the question phase
