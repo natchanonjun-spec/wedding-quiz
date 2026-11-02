@@ -189,12 +189,15 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   background: rgba(255, 255, 255, .14);
   overflow: hidden;
 }
+/* Shrinks by transform, set every frame by the timer loop (host.js/player.js).
+   No transition: easing on top of per-frame updates made it trail the real
+   time by a quarter second, so it still showed a sliver when time was up. */
 .timerbar > i {
   display: block;
   height: 100%;
   width: 100%;
   background: linear-gradient(90deg, var(--gold), #ff9f6e);
-  transition: width .25s linear;
+  transform-origin: left center;
 }
 
 .clock {

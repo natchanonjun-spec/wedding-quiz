@@ -412,13 +412,13 @@
             : look ? 'ดูจอใหญ่ก่อนนะ' : 'เตรียมตัว…';
           bounce($('q-count'));   // 3, 2, 1 should each land with a beat, not just swap
         }
-        $('q-bar').style.width = '100%';
+        $('q-bar').style.transform = 'scaleX(1)';
       } else {
         $('q-ready').style.display = 'none';
         $('q-answers').style.display = '';
         var total = state.endsAt - state.startsAt;
         var left = Math.max(0, state.endsAt - t);
-        $('q-bar').style.width = (total > 0 ? (left / total) * 100 : 0) + '%';
+        $('q-bar').style.transform = 'scaleX(' + (total > 0 ? left / total : 0) + ')';
         if (left <= 0 && !state.hasAnswered) {
           $('q-note').textContent = 'หมดเวลาแล้ว';
           var bs = document.querySelectorAll('#q-answers .answer');

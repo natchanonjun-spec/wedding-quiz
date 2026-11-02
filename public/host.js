@@ -460,17 +460,17 @@
       if (intro) {
         if (!introCued) { introCued = true; snd('bonusRound'); }
         $('q-answers').style.visibility = 'hidden';
-        $('q-bar').style.width = '100%';
+        $('q-bar').style.transform = 'scaleX(1)';
       } else if (scenic) {
         if (!sceneCued) { sceneCued = true; snd('sceneWhoosh'); }
         $('q-answers').style.visibility = 'hidden';
-        $('q-bar').style.width = '100%';
+        $('q-bar').style.transform = 'scaleX(1)';
       } else if (t < state.startsAt) {
         var readyLeft = Math.max(1, Math.ceil((state.startsAt - t) / 1000));
         $('clock').textContent = String(readyLeft);
         bumpClock('r' + readyLeft);
         $('q-answers').style.visibility = 'hidden';
-        $('q-bar').style.width = '100%';
+        $('q-bar').style.transform = 'scaleX(1)';
         snd('readyBeep', readyLeft);
       } else {
         $('q-answers').style.visibility = 'visible';
@@ -479,7 +479,7 @@
         var secLeft = Math.ceil(left / 1000);
         $('clock').textContent = String(secLeft);
         bumpClock(secLeft);
-        $('q-bar').style.width = (total > 0 ? (left / total) * 100 : 0) + '%';
+        $('q-bar').style.transform = 'scaleX(' + (total > 0 ? left / total : 0) + ')';
         if (!answersOpenCued) { answersOpenCued = true; snd('questionStart'); }
         if (left <= 0) {
           if (!timeUpCued) { timeUpCued = true; snd('timeUp'); }

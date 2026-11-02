@@ -186,7 +186,7 @@
   /* Rung: the card says so and the button becomes the way back out. */
   .bell.armed { border-color: #ffd84a; box-shadow: 0 0 0 3px var(--outline), inset 0 0 0 2px #c8912a, 0 0 22px rgba(255, 216, 74, .45); }
   .bell.armed .bell-on { display: block; }
-  .bell.armed .bell-icon { animation: ring .9s steps(2) infinite; }
+  .bell.armed .bell-icon { animation: ring .45s steps(2) 4; }   /* a short burst, not a forever-wiggle */
   .bell.armed .btn { background: var(--cream); }
   @keyframes ring { 0%, 100% { rotate: -12deg; } 50% { rotate: 12deg; } }
   .bell-slot:empty { display: none; }

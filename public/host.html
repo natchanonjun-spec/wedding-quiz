@@ -40,7 +40,7 @@
      so a new join never restarts everyone else's run mid-stride. */
   /* Not ".field" - style.css already uses that name for text inputs. */
   /* Never shorter than one guest plus their name tag, or feet get clipped. */
-  .runfield { position:relative; margin-top:14px; flex:0 1 auto; min-height:calc(35px * var(--ps) + 24px);
+  .runfield { container-type:inline-size; position:relative; margin-top:14px; flex:0 1 auto; min-height:calc(35px * var(--ps) + 24px);
               height:clamp(170px, 26vh, 320px); overflow:hidden; }
 
   /* ---------- the world behind the projector ----------
@@ -147,9 +147,10 @@
   .pod .nm { display:inline-block; line-height:1.25; background:rgba(58,33,18,.88); border:3px solid #d69a5a;
              border-radius:6px; box-shadow:0 0 0 2px #4a2711; padding:4px 12px; }
   .bars .lbl, .bars .n { text-shadow:0 2px 0 #2a1408, 0 0 8px rgba(0,0,0,.6); }
-  /* Animates `left`, not `transform: translateX()` - a transform percentage
-     resolves against the RUNNER's own width (~46px), not the field's, so it
-     would only ever shuffle near the left edge instead of crossing it. */
+  /* Moves with `translate`, which the GPU handles without re-laying-out the
+     page; `left` cost a layout pass per frame for every guest (200 at a full
+     party). A % translate would resolve against the runner's own ~46px, so the
+     distance is in 100cqw, the width of the field (.runfield is the container). */
   /* Guest sprites (pixelfolk.js) are 18x35 art pixels, scaled by a whole
      number (--ps, set in host.js from the screen height) so pixels stay square.
      --lane (0..1) spreads them top to bottom without ever clipping the feet. */
@@ -172,7 +173,7 @@
   .runner.left { animation-direction:reverse; }
   .runner.left .sprite { transform:scaleX(-1); }
   .runner .kick { position:absolute; inset:-6px; background:none; border:none; cursor:pointer; opacity:0; }
-  @keyframes runX { from { left:calc(-1 * var(--sw)); } to { left:100%; } }
+  @keyframes runX { from { translate:0 0; } to { translate:calc(100cqw + var(--sw)) 0; } }
 
   .qtext { font-size: clamp(28px, 3.6vw, 52px); font-weight:900; line-height:1.35;
            text-align:center; margin:10px 0 22px; }
