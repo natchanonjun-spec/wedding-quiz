@@ -482,6 +482,13 @@
         if (key !== lastPhaseKey) {
           $('q-note').textContent = '';
           $('q-meta').textContent = 'ข้อ ' + state.question.number + ' / ' + state.question.total;
+          var pips = $('q-pips');
+          pips.innerHTML = '';
+          for (var pi = 1; pi <= state.question.total; pi++) {
+            var pip = document.createElement('i');
+            pip.className = pi < state.question.number ? 'done' : pi === state.question.number ? 'now' : '';
+            pips.appendChild(pip);
+          }
           $('q-double').hidden = state.question.points !== 2;
           $('q-bell').hidden = you.bell !== 'armed';
           $('q-text').textContent = state.question.text;

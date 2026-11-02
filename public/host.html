@@ -110,6 +110,17 @@
   .qr { border:4px solid #d69a5a; box-shadow:0 0 0 3px #4a2711, 0 8px 0 2px rgba(20,8,2,.45); }
   .qpanel { max-width:1180px; margin:0 auto 4px; width:100%; text-align:center; }
   .qpanel .qtext { margin:4px 0 2px; }
+  /* Where we are in the quiz: big "ข้อ 3 / 9" and a pip per question
+     (done = filled, now = big and glowing, ahead = hollow, x2 now = gold). */
+  .qprog { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:6px; }
+  .qnum { font-size:clamp(26px, 2.8vw, 40px); font-weight:900; color:var(--gold); line-height:1.1; }
+  .qnum .x2 { margin-left:.5em; font-size:.75em; color:#2a1a14; background:#ffd84a; border-radius:999px; padding:.1em .6em; }
+  .pips { display:flex; gap:clamp(6px, .7vw, 12px); align-items:center; }
+  .pips i { width:clamp(14px, 1.4vw, 22px); height:clamp(14px, 1.4vw, 22px); border-radius:3px;
+            border:3px solid rgba(253,248,242,.55); background:transparent; }
+  .pips i.done { background:var(--gold); border-color:var(--gold); }
+  .pips i.now { background:#fff6e6; border-color:#fff6e6; transform:scale(1.35); box-shadow:0 0 14px rgba(255,216,74,.8); }
+  .pips i.now.x2 { background:#ffd84a; border-color:#ffd84a; }
   body.x2 .qpanel { border-color:#ffd84a; box-shadow:0 0 0 3px #7a4f08, inset 0 0 0 3px #c8912a, 0 0 0 9px rgba(255,216,74,.35),
                                                   0 8px 0 2px rgba(20,8,2,.45); }
 
@@ -340,12 +351,10 @@
              background:#0b0820; opacity:0; transition:opacity .35s steps(4); }
   .goalrun.show { opacity:1; }
   .goalrun .grbob { position:absolute; inset:-3vh 0; }
-  .goalrun.show .grbob { animation:grBob .36s steps(2, jump-none) infinite alternate; }
-  @keyframes grBob { from { transform:translateY(0); } to { transform:translateY(-1.6vh); } }
+  /* No camera bob and no zoom any more (asked to drop the zoom-in): the aisle
+     holds still while the petals, GOAL! and the flash carry the moment. */
   .goalrun .grscene { position:absolute; inset:0; background:url(img/world/goal.png) center/cover no-repeat;
                        image-rendering:pixelated; transform-origin:var(--vx, 50%) var(--vy, 50%); }
-  .goalrun.show .grscene { animation:grZoom 2.35s cubic-bezier(.6,0,.95,.55) forwards; }
-  @keyframes grZoom { from { transform:scale(1); } to { transform:scale(3.4); } }
   .goalrun .grpost { position:absolute; left:var(--vx, 50%); top:var(--vy, 50%); width:8px; height:8px;
                       margin:-4px 0 0 -4px; background:#ffc4d6; box-shadow:3px 3px 0 #d9728f;
                       animation:grFly .9s linear infinite; opacity:0; }
@@ -474,7 +483,10 @@
     <!-- question -->
     <div id="v-q" class="grow" style="display:none">
       <div class="panel qpanel">
-        <div class="center hint" id="q-num" style="font-size:20px">ข้อ 1 / 10</div>
+        <div class="qprog" id="q-prog">
+          <div class="qnum" id="q-num">ข้อ 1 / 10</div>
+          <div class="pips" id="q-pips" aria-hidden="true"></div>
+        </div>
         <div class="qtext" id="q-text">…</div>
         <img id="q-img" class="qimg" alt="" hidden>
         <div class="timerbar" style="margin-top:10px"><i id="q-bar"></i></div>

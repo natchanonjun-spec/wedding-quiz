@@ -119,6 +119,11 @@
   .qmeta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px;
            color: var(--muted); font-size: 14px; font-weight: 700; }
   .qmeta .pill { font-size: 13px; padding: 3px 10px; }
+  .qmeta #q-meta { font-size: 19px; font-weight: 900; color: var(--accent); }
+  .qpips { display: flex; gap: 6px; margin: 0 0 10px; }
+  .qpips i { flex: 1; max-width: 26px; height: 8px; border-radius: 2px; background: rgba(255, 246, 230, .22); }
+  .qpips i.done { background: var(--accent); }
+  .qpips i.now { background: var(--cream); box-shadow: 0 0 8px rgba(255, 216, 74, .8); }
   .qhead { font-size: 20px; font-weight: 800; line-height: 1.5; margin: 0 0 12px; }
   .timerbar { height: 12px; border-radius: 0; background: rgba(20, 8, 2, .55); box-shadow: 0 0 0 2px var(--outline); }
   .timerbar > i { background: var(--accent); }
@@ -264,6 +269,7 @@
     </div>
     <div class="panel qpanel">
       <p class="qmeta"><span id="q-meta"></span><span><span class="pill bellpill" id="q-bell" hidden>กระดิ่งดังอยู่!</span> <span class="pill gold" id="q-double" hidden>คะแนน ×2</span></span></p>
+      <div class="qpips" id="q-pips" aria-hidden="true"></div>
       <h2 class="qhead" id="q-text"></h2>
       <div class="timerbar" aria-hidden="true"><i id="q-bar"></i></div>
     </div>

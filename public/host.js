@@ -397,8 +397,21 @@
     var key = 'q' + state.index;
     if (key !== lastQuestionKey) {
       lastQuestionKey = key;
-      $('q-num').textContent = 'ข้อ ' + q.number + ' / ' + q.total +
-        (q.points === 2 ? '  •  คะแนนคูณ 2 ✨' : '');
+      $('q-num').textContent = 'ข้อ ' + q.number + ' / ' + q.total;
+      if (q.points === 2) {
+        var x2 = document.createElement('span');
+        x2.className = 'x2';
+        x2.textContent = 'คะแนน ×2';
+        $('q-num').appendChild(x2);
+      }
+      var pips = $('q-pips');
+      pips.innerHTML = '';
+      for (var pi = 1; pi <= q.total; pi++) {
+        var pip = document.createElement('i');
+        if (pi < q.number) pip.className = 'done';
+        else if (pi === q.number) pip.className = 'now' + (q.points === 2 ? ' x2' : '');
+        pips.appendChild(pip);
+      }
       $('q-text').textContent = q.text;
 
       var box = $('q-answers');
