@@ -180,7 +180,11 @@
   .rules { text-align: left; display: grid; gap: 6px; }
   .rules h3 { margin: 6px 0 0; font-size: 18px; font-weight: 900; color: var(--accent); }
   .rules h3:first-child { margin-top: 0; }
-  .rules ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 16px; line-height: 1.55; }
+  .rules ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 18px; line-height: 1.55; }
+  .rules .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 19px; font-weight: 800; line-height: 1.4; }
+  .rules .steps li { display: flex; align-items: center; gap: 12px; }
+  .rules .stepn { flex: none; width: 36px; height: 36px; display: grid; place-items: center; font-size: 15px;
+                  color: var(--ink); background: var(--accent); border-radius: 6px; box-shadow: 0 0 0 2px var(--outline); }
   .rules b { color: var(--accent); }
 
   /* ---------- ring the bell ---------- */
@@ -189,7 +193,7 @@
   .bell-icon { width: 52px; height: auto; image-rendering: pixelated; flex: none;
                filter: drop-shadow(0 3px 0 rgba(20, 8, 2, .5)); }
   .bell-title { font-family: 'Press Start 2P', monospace; font-size: 14px; color: var(--accent); line-height: 1.5; }
-  .bell-rules { margin: 0; padding: 0 0 0 20px; display: grid; gap: 4px; font-size: 15px; line-height: 1.5; }
+  .bell-rules { margin: 0; padding: 0 0 0 20px; display: grid; gap: 4px; font-size: 17px; line-height: 1.5; }
   .bell-rules b.good { color: var(--good); }
   .bell-rules b.bad { color: var(--bad); }
   .bell .btn { font-weight: 800; }
@@ -271,22 +275,20 @@
   <!-- RULES (while the projector reads them out) -->
   <section id="s-rules" class="screen">
     <div class="grow">
-      <div class="center"><span class="pill gold">กติกาการเล่น</span></div>
+      <div class="center"><span class="pill gold">วิธีเล่น</span></div>
       <div class="panel rules">
-        <h3>กฎทั่วไป</h3>
+        <ol class="steps">
+          <li><span class="stepn px">1</span>ดูคำถามบนจอใหญ่</li>
+          <li><span class="stepn px">2</span>กดคำตอบในมือถือนี้</li>
+          <li><span class="stepn px">3</span>ตอบถูกได้คะแนน ยิ่งกดเร็วยิ่งได้เยอะ</li>
+        </ol>
+        <p class="muted small" style="margin:0">ข้อละ <b id="pr-time">10-15</b> วินาที • กดได้ครั้งเดียว • ทั้งหมด <b id="pr-n">9</b> ข้อ</p>
+        <h3>กติกาพิเศษ</h3>
         <ul>
-          <li><b id="pr-n">9</b> ข้อ ดูคำถามบนจอใหญ่ เลือกคำตอบที่มือถือ</li>
-          <li>ข้อละ <b id="pr-time">10-15</b> วินาที ตอบได้ครั้งเดียว</li>
-          <li>ถูกได้สูงสุด 1,000 ยิ่งเร็วยิ่งได้เยอะ</li>
-          <li>ถูกติดกันได้โบนัสเพิ่มข้อละ +100</li>
+          <li id="pr-bonus-row"><b id="pr-bonus">2</b> ข้อสุดท้าย คะแนน 2 เท่า</li>
+          <li>ปุ่มกระดิ่ง อยู่ข้างล่าง (ไม่กดก็ได้)</li>
+          <li>คะแนนสูงสุด 3 คน ได้รางวัล!</li>
         </ul>
-        <h3>กฎพิเศษ</h3>
-        <ul>
-          <li id="pr-bonus-row"><b id="pr-bonus">2</b> ข้อสุดท้าย คะแนน ×2</li>
-          <li>Ring the Bell ใช้ได้ 1 ครั้ง (ดูด้านล่าง)</li>
-        </ul>
-        <h3>ผู้ชนะ 3 คน</h3>
-        <p class="muted small" style="margin:0">อันดับ 1-3 ขึ้นโพเดียมตอนจบเกม</p>
       </div>
       <div class="bell-slot" id="slot-rules"></div>
     </div>
@@ -384,13 +386,14 @@
       <img class="bell-icon" id="bell-icon" alt="">
       <div>
         <div class="bell-title">RING THE BELL</div>
-        <div class="muted small">เดิมพันข้อถัดไป ใช้ได้ครั้งเดียวทั้งเกม</div>
+        <div class="muted small">ปุ่มกระดิ่ง กดได้แค่ครั้งเดียว</div>
       </div>
     </div>
     <ul class="bell-rules">
-      <li><b class="good">ตอบถูก</b> ได้คะแนนข้อนั้น ×2</li>
-      <li><b class="bad">ตอบผิด หรือไม่ทันตอบ</b> โดนหัก 500 คะแนน (ข้อคะแนน ×2 หัก 1,000)</li>
-      <li>ต้องกดก่อนคำถามขึ้น ยังไม่รู้ว่าข้อถัดไปถามอะไร!</li>
+      <li>กดก่อนคำถามข้อถัดไปจะขึ้น</li>
+      <li>ตอบ<b class="good">ถูก</b> ได้คะแนน<b class="good">ข้อนั้น 2 เท่า</b></li>
+      <li>ตอบ<b class="bad">ผิด</b> หรือไม่ทันตอบ <b class="bad">โดนหัก 500 คะแนน</b> (ข้อ 2 เท่า หัก 1,000)</li>
+      <li>ไม่กดก็ได้ เล่นตามปกติ</li>
     </ul>
     <p class="bell-on" role="status">กระดิ่งดังแล้ว! เดิมพันข้อถัดไป</p>
     <button id="btn-bell" class="btn block" type="button">Ring the Bell!</button>

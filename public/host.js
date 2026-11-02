@@ -837,12 +837,9 @@
     var num = function (n) { return n.toLocaleString('th-TH'); };
     $('r-n').textContent = r.questions;
     $('r-time').textContent = r.minTime === r.maxTime ? r.minTime : r.minTime + '-' + r.maxTime;
-    $('r-streak').textContent = '+' + num(r.streakBonus);
-    $('r-streakcap').textContent = '+' + num(r.streakCap);
     $('r-bonus').textContent = r.bonus;
-    $('r-bonus').parentNode.parentNode.hidden = !r.bonus;
+    $('r-bonus-row').hidden = !r.bonus;
     $('r-pen').textContent = num(r.bellPenalty);
-    $('r-pen2').textContent = num(r.bellPenalty * 2);
     if (window.PixelFolk && !$('r-bell').src) {
       $('r-bell').src = window.PixelFolk.namedIcon('bell').toDataURL();
       $('r-m1').src = window.PixelFolk.namedIcon('crown').toDataURL();

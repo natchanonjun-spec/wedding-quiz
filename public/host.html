@@ -27,7 +27,7 @@
   /* Sized by the screen HEIGHT as well as width, so the whole page fits above
      the host controls on a 16:9 projector without scrolling. "safe center"
      keeps the title from being pushed off the top if it ever does overflow. */
-  #v-rules { justify-content:safe center; gap:1.6vh; }
+  #v-rules { justify-content:safe center; gap:1.1vh; }
   .rules-title { text-align:center; margin:0; font-size:clamp(26px, min(3.4vw, 5vh), 56px); font-weight:900; color:var(--gold);
                  text-shadow:0 4px 0 #4a2711; }
   .rules-cols { display:grid; grid-template-columns:1fr 1fr; gap:1.6vh 18px; }
@@ -35,7 +35,16 @@
   .rules-box { padding:1.6vh 24px; }
   .rules-box h3 { margin:0 0 .8vh; font-size:clamp(20px, min(2.2vw, 3.2vh), 34px); font-weight:900; color:#fff6e6; }
   .rules-box ul { margin:0; padding-left:1.2em; display:grid; gap:.6vh; }
-  .rules-box li, .rule-row p { font-size:clamp(16px, min(1.6vw, 2.5vh), 27px); line-height:1.5; margin:0; }
+  .rules-box li, .rule-row p { font-size:clamp(17px, min(1.7vw, 2.7vh), 30px); line-height:1.45; margin:0; }
+  .rules-box small { font-size:.8em; color:rgba(253,248,242,.75); }
+  /* The three steps: a big numbered badge each, read left to right at a glance. */
+  .steps { list-style:none; margin:0; padding:0; display:grid; gap:.8vh; }
+  .steps li { display:flex; align-items:center; gap:16px; }
+  .stepn { flex:none; width:clamp(32px, 4.4vh, 52px); aspect-ratio:1; display:grid; place-items:center;
+           font-family:'Press Start 2P', monospace; font-size:clamp(16px, 2.6vh, 28px); color:#2a1a14;
+           background:var(--gold); border-radius:6px; box-shadow:0 0 0 3px #4a2711; }
+  .rules-note { margin:1.4vh 0 0; font-size:clamp(15px, min(1.4vw, 2.2vh), 23px); color:rgba(253,248,242,.8); }
+  .rules-note b { color:var(--gold); }
   .rules-box b { color:var(--gold); }
   .rules-box b.good { color:#8ff0b4; }
   .rules-box b.bad { color:#ffb9be; }
@@ -493,41 +502,40 @@
       </div>
     </div>
 
-    <!-- rules: read out before question 1 -->
+    <!-- rules: read out before question 1, in plain words anyone can follow -->
     <div id="v-rules" class="grow" style="display:none">
-      <h2 class="rules-title">กติกาการเล่น</h2>
+      <h2 class="rules-title">วิธีเล่น</h2>
       <div class="rules-cols">
         <div class="panel rules-box">
-          <h3>กฎทั่วไป</h3>
-          <ul>
-            <li>ทั้งหมด <b id="r-n">9</b> ข้อ ดูคำถามบนจอใหญ่ แล้ว<b>เลือกคำตอบบนมือถือ</b> (สีและรูปตรงกับบนจอ)</li>
-            <li>ข้อละ <b id="r-time">10-15</b> วินาที ตอบได้<b>ครั้งเดียว</b> เปลี่ยนคำตอบไม่ได้</li>
-            <li>ตอบถูกได้สูงสุด <b>1,000</b> คะแนน <b>ยิ่งตอบเร็ว ยิ่งได้เยอะ</b></li>
-            <li>ตอบถูกติดกัน ได้โบนัสเพิ่มข้อละ <b id="r-streak">+100</b> (สูงสุด <b id="r-streakcap">+500</b>)</li>
-            <li>ตอบผิดหรือไม่ทันเวลา ได้ 0 คะแนน</li>
-          </ul>
+          <h3>เล่นง่าย ๆ 3 ขั้นตอน</h3>
+          <ol class="steps">
+            <li><span class="stepn">1</span><p>ดู<b>คำถาม</b>บนจอใหญ่</p></li>
+            <li><span class="stepn">2</span><p>กด<b>คำตอบ</b>ในมือถือ <small>(สีเดียวกับบนจอ)</small></p></li>
+            <li><span class="stepn">3</span><p>ตอบถูกได้คะแนน <b>ยิ่งกดเร็ว ยิ่งได้เยอะ</b></p></li>
+          </ol>
+          <p class="rules-note">มีเวลาข้อละ <b id="r-time">10-15</b> วินาที &nbsp;•&nbsp; กดได้ครั้งเดียว &nbsp;•&nbsp; ทั้งหมด <b id="r-n">9</b> ข้อ</p>
         </div>
         <div class="panel rules-box special">
-          <h3>กฎพิเศษ</h3>
-          <div class="rule-row">
+          <h3>กติกาพิเศษ</h3>
+          <div class="rule-row" id="r-bonus-row">
             <span class="x2tag">×2</span>
-            <p><b>รอบโบนัส:</b> <b id="r-bonus">2</b> ข้อสุดท้าย คะแนนคูณ 2</p>
+            <p><b id="r-bonus">2</b> ข้อสุดท้าย <b>คะแนน 2 เท่า</b></p>
           </div>
           <div class="rule-row">
             <img class="ricon" id="r-bell" alt="">
-            <p><b>Ring the Bell:</b> ใช้ได้<b>ครั้งเดียว</b>ทั้งเกม กดบนมือถือ<b>ก่อนคำถามขึ้น</b>
-              ตอบถูก<b class="good"> ได้ ×2</b> ตอบผิดหรือไม่ตอบ<b class="bad"> โดนหัก <span id="r-pen">500</span></b>
-              (ข้อ ×2 หัก <span id="r-pen2">1,000</span>) คะแนนไม่ติดลบ</p>
+            <p><b>ปุ่มกระดิ่ง</b> (กดได้แค่ครั้งเดียว)<br>
+              กดก่อนคำถามขึ้น ถ้าตอบ<b class="good">ถูก ได้ 2 เท่า</b><br>
+              ถ้าตอบ<b class="bad">ผิด โดนหัก <span id="r-pen">500</span> คะแนน</b> <small>(2 ข้อสุดท้าย หัก 1,000)</small><br>
+              <small>ไม่กดก็ได้ เล่นตามปกติ</small></p>
           </div>
-          <p class="rules-hint">กดกระดิ่งสำหรับข้อ 1 ได้ตั้งแต่ตอนนี้!</p>
         </div>
       </div>
       <div class="panel rules-win">
-        <h3>ผู้ชนะ 3 คน ขึ้นโพเดียมตอนจบเกม</h3>
+        <h3>คะแนนสูงสุด 3 คน ได้รางวัล!</h3>
         <div class="medals">
-          <div><img class="ricon" id="r-m1" alt=""><span>อันดับ 1</span></div>
-          <div><img class="ricon" id="r-m2" alt=""><span>อันดับ 2</span></div>
-          <div><img class="ricon" id="r-m3" alt=""><span>อันดับ 3</span></div>
+          <div><img class="ricon" id="r-m1" alt=""><span>ที่ 1</span></div>
+          <div><img class="ricon" id="r-m2" alt=""><span>ที่ 2</span></div>
+          <div><img class="ricon" id="r-m3" alt=""><span>ที่ 3</span></div>
         </div>
       </div>
     </div>
