@@ -455,6 +455,54 @@
   .gp-empty { color:rgba(253,248,242,.6); padding:14px; text-align:center; }
   .grow { flex:1; display:flex; flex-direction:column; justify-content:center; }
   .gate { max-width:420px; margin:auto; }
+
+  /* ---------- big screens (Full HD projectors and TVs) ----------
+     Everything below grows with the screen HEIGHT, from today's size (the
+     minimum, so a laptop or 720p projector looks exactly as before) up to a
+     cap. Measured at 1920x1080 these were the parts stuck at laptop size:
+     names over the walkers 12px, chart labels 16px, counters 20px, leaderboard
+     24px in an 820px column. Inline sizes in the markup need !important. */
+  #phase-label { font-size:clamp(22px, 2.6vh, 40px) !important; }
+  .stat b { font-size:clamp(34px, 4.2vh, 64px); }
+  .stat span { font-size:clamp(13px, 1.7vh, 24px); }
+  .clock { width:clamp(84px, 9vh, 130px); height:clamp(84px, 9vh, 130px); font-size:clamp(38px, 4.4vh, 64px); }
+
+  .url { font-size:clamp(26px, 3.2vh, 48px); }
+  .pin-hero .hint { font-size:clamp(20px, 2.6vh, 38px) !important; }
+  .runner .tag, .runner.couple .tag { font-size:clamp(11px, 1.5vh, 22px); padding:.1em .6em; }
+
+  .qtext { font-size:clamp(28px, min(3.6vw, 5.6vh), 72px); }
+  .answers.host .answer { font-size:clamp(18px, min(2vw, 3.3vh), 44px); padding:clamp(26px, 2.6vh, 40px) 22px; }
+  .answers.host .shape { width:clamp(38px, 3.8vh, 56px); height:clamp(38px, 3.8vh, 56px); }
+  .hasimg .answers.host .answer { font-size:clamp(16px, min(1.6vw, 2.6vh), 34px); }
+  #v-q .timerbar { height:clamp(12px, 1.5vh, 22px); }
+  #v-q .hint.pill, #v-reveal .hint.pill, .bellpill { font-size:clamp(20px, 2.7vh, 40px) !important; }
+
+  .bar .n { font-size:clamp(26px, 3.8vh, 58px); }
+  .bar .lbl { font-size:clamp(16px, 2.6vh, 38px); min-height:clamp(44px, 6vh, 90px); line-height:1.3; }
+  .bar .tick { font-size:clamp(24px, 3.6vh, 52px); }
+
+  .lb { max-width:clamp(820px, 62vw, 1300px); }
+  .lb li { font-size:clamp(17px, 3.2vh, 46px); gap:clamp(18px, 2vh, 30px); }
+  .lb .r { width:clamp(44px, 5vh, 72px); }
+  #v-board .monogram, #v-end .monogram { font-size:clamp(16px, 2.4vh, 34px) !important; }
+
+  .pod .nm { font-size:clamp(20px, min(1.9vw, 3.4vh), 48px); }
+
+  /* Short screens (720p projectors, laptops): the host controls take two rows,
+     so the frame and spacing tighten and every view still fits without scrolling. */
+  @media (max-height:820px) {
+    .wrap { padding:12px 24px 6px; }
+    .hdr.panel { margin-bottom:8px; }
+    .controls.panel { padding:5px 10px; margin-top:6px; }
+    .controls { gap:8px; }
+    .controls .btn { padding:6px 12px; font-size:14px; }
+    .answers.host .answer { padding:16px 18px; }
+    .qpanel { padding-top:10px; padding-bottom:10px; }
+    .rules-box { padding:1vh 20px; }
+    .rule-row { margin-bottom:.6vh; }
+    .bar .lbl { min-height:36px; }
+  }
 </style>
 </head>
 <body>
