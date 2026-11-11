@@ -24,16 +24,18 @@
   function soundLabel() {
     var S = window.WQSound;
     var btn = $('c-sound');
-    if (!S) { btn.textContent = '🔇 เสียง: ปิด'; return; }
-    if (!S.isEnabled()) { btn.textContent = '🔇 เสียง: ปิด'; btn.classList.remove('warn'); return; }
+    if (!S) { btn.textContent = '🔇'; btn.title = 'เสียง: ปิด'; return; }
+    if (!S.isEnabled()) { btn.textContent = '🔇'; btn.title = 'เสียง: ปิด (กดเพื่อเปิด)'; btn.classList.remove('warn'); return; }
     // A context that is not running means the browser is still blocking audio -
     // say so, rather than showing a speaker icon over silence.
     if (S.state() !== 'running') {
-      btn.textContent = '🔇 กดตรงนี้เพื่อเปิดเสียง';
+      btn.textContent = '🔇 กดเปิดเสียง';
+      btn.title = 'เบราว์เซอร์ยังบล็อกเสียงอยู่ กดเพื่อเปิด';
       btn.classList.add('warn');
       return;
     }
-    btn.textContent = '🔊 เสียง: เปิด';
+    btn.textContent = '🔊';
+    btn.title = 'เสียง: เปิด (กดเพื่อปิด)';
     btn.classList.remove('warn');
   }
 
@@ -109,12 +111,15 @@
 
   // Lobby music: each click moves to the next style and, in the lobby, plays it
   // straight away so the choice can be made by ear.
+  var musicLabelTimer = null;
   function musicLabel() {
     var S = window.WQSound;
     if (!S || !S.lobbyStyles) { $('c-music').hidden = true; return; }
     var cur = S.lobbyStyle();
     var name = S.lobbyStyles().filter(function (x) { return x.id === cur; })[0];
-    $('c-music').textContent = '🎵 เพลงห้องรอ: ' + (name ? name.name : cur);
+    var label = 'เพลงห้องรอ: ' + (name ? name.name : cur);
+    $('c-music').title = label + ' (กดเพื่อเปลี่ยน)';
+    $('c-music').setAttribute('aria-label', label);
   }
   musicLabel();
   $('c-music').addEventListener('click', function () {
@@ -123,6 +128,13 @@
     var list = S.lobbyStyles().map(function (x) { return x.id; });
     S.setLobbyStyle(list[(list.indexOf(S.lobbyStyle()) + 1) % list.length]);
     musicLabel();
+    // An icon alone can't say which song: spell it out for a moment.
+    var cur = S.lobbyStyle();
+    var picked = S.lobbyStyles().filter(function (x) { return x.id === cur; })[0];
+    $('c-music').textContent = '🎵 ' + (picked ? picked.name : cur);
+    $('c-music').classList.add('wide');
+    clearTimeout(musicLabelTimer);
+    musicLabelTimer = setTimeout(function () { $('c-music').textContent = '🎵'; $('c-music').classList.remove('wide'); }, 2500);
     S.unlock();
     if (S.isEnabled() && state && state.phase === 'lobby') snd('lobby');
   });
@@ -896,7 +908,8 @@
     $('st-players').textContent = state.playerCount;
     $('st-q').textContent = (state.phase === 'lobby' ? 0 : Math.min(state.index + 1, state.questionCount)) +
       '/' + state.questionCount;
-    $('c-lock').textContent = state.joinLocked ? '🔓 เปิดรับผู้เล่น' : '🔒 ปิดรับผู้เล่น';
+    $('c-lock').textContent = state.joinLocked ? '🔓 เปิดรับ' : '🔒 ปิดรับ';
+    $('c-lock').title = state.joinLocked ? 'เปิดรับผู้เล่นเพิ่ม' : 'ปิดรับผู้เล่นเพิ่ม';
     soundLabel();
 
     // Start must be reachable whenever a game is not actually running, otherwise a

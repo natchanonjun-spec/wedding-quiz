@@ -428,6 +428,24 @@
 
   .controls { display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
               padding:14px 0 4px; border-top:1px solid rgba(232,192,122,.2); margin-top:14px; }
+  /* One row of game controls only: the question gets the height back. Sound,
+     music, the question editor and "clear everything" live as icons top-right. */
+  .controls.panel { flex-wrap:nowrap; align-items:center; padding:6px 12px; margin-top:8px; }
+  .controls .btn { padding:8px 16px; font-size:clamp(14px, 1.5vh, 20px); white-space:nowrap; }
+  .controls .keys { margin-left:auto; font-size:clamp(12px, 1.2vh, 16px); color:rgba(253,248,242,.55); white-space:nowrap; }
+  @media (max-width:1250px) { .controls .keys { display:none; } .controls.panel { justify-content:center; } }
+  .tools { display:flex; gap:8px; margin-right:clamp(6px, 1.4vw, 24px); }
+  .tool { width:clamp(40px, 4.4vh, 58px); height:clamp(40px, 4.4vh, 58px); padding:0; display:grid; place-items:center;
+          border-radius:8px; font-size:clamp(18px, 2.2vh, 28px); line-height:1; text-decoration:none; cursor:pointer;
+          background:rgba(255,246,230,.08); border:2px solid rgba(232,192,122,.45); color:var(--cream); }
+  .tool:hover { background:rgba(255,246,230,.16); }
+  .tool.danger { border-color:rgba(255,140,150,.6); }
+  .tool.danger:hover { background:rgba(201,66,74,.35); }
+  .tool:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+  /* Spelled out when it matters: audio still blocked, or a new music choice. */
+  .tool.wide { width:auto; padding:0 12px; font-size:clamp(14px, 1.6vh, 20px); font-weight:800; white-space:nowrap; }
+  .tool.warn { width:auto; padding:0 12px; font-size:clamp(14px, 1.6vh, 20px); font-weight:800; white-space:nowrap;
+               background:rgba(232,192,122,.9); color:var(--ink); animation: warnPulse 1.6s ease-in-out infinite; }
 
   /* Guest manager: reachable in every phase, so a bad name is never stuck on screen */
   #guests-panel {
@@ -471,8 +489,8 @@
   .pin-hero .hint { font-size:clamp(20px, 2.6vh, 38px) !important; }
   .runner .tag, .runner.couple .tag { font-size:clamp(11px, 1.5vh, 22px); padding:.1em .6em; }
 
-  .qtext { font-size:clamp(28px, min(3.6vw, 5.6vh), 72px); }
-  .answers.host .answer { font-size:clamp(18px, min(2vw, 3.3vh), 44px); padding:clamp(26px, 2.6vh, 40px) 22px; }
+  .qtext { font-size:clamp(28px, min(3.8vw, 6.4vh), 80px); }
+  .answers.host .answer { font-size:clamp(18px, min(2.1vw, 3.7vh), 48px); padding:clamp(26px, 3vh, 46px) 22px; }
   .answers.host .shape { width:clamp(38px, 3.8vh, 56px); height:clamp(38px, 3.8vh, 56px); }
   .hasimg .answers.host .answer { font-size:clamp(16px, min(1.6vw, 2.6vh), 34px); }
   #v-q .timerbar { height:clamp(12px, 1.5vh, 22px); }
@@ -544,6 +562,12 @@
         <div id="phase-label" style="font-size:22px;font-weight:900">ห้องรอ</div>
       </div>
       <div class="right">
+        <div class="tools">
+          <button id="c-sound" class="tool" title="เสียง" aria-label="เสียง">🔊</button>
+          <button id="c-music" class="tool" title="เพลงห้องรอ" aria-label="เพลงห้องรอ">🎵</button>
+          <a class="tool" href="/admin" target="_blank" title="แก้ไขคำถาม" aria-label="แก้ไขคำถาม">✏️</a>
+          <button id="c-reset" class="tool danger" title="ล้างทุกอย่าง (PIN ใหม่)" aria-label="ล้างทุกอย่าง">🧹</button>
+        </div>
         <div class="stat"><b id="st-players">0</b><span>ผู้เล่น</span></div>
         <div class="stat"><b id="st-q">0/0</b><span>ข้อ</span></div>
         <div id="clock" class="clock" style="display:none">20</div>
@@ -654,14 +678,12 @@
 
     <div class="controls panel">
       <button id="c-start" class="btn">▶ เริ่มเกม</button>
-      <button id="c-skip" class="btn ghost">⏭ ข้ามเวลา / เฉลย</button>
+      <button id="c-skip" class="btn ghost" title="ข้ามเวลาที่เหลือ แล้วเฉลยเลย (S)">⏭ เฉลยเลย</button>
       <button id="c-next" class="btn">ถัดไป →</button>
-      <button id="c-lock" class="btn ghost">🔒 ปิดรับผู้เล่น</button>
-      <button id="c-guests" class="btn ghost">👥 จัดการผู้เล่น</button>
-      <button id="c-back" class="btn ghost">↺ กลับห้องรอ</button>
-      <button id="c-sound" class="btn ghost">🔊 เสียง: เปิด</button>
-      <button id="c-music" class="btn ghost">🎵 เพลงห้องรอ</button>
-      <button id="c-reset" class="btn danger">🧹 ล้างทุกอย่าง</button>
+      <button id="c-lock" class="btn ghost">🔒 ปิดรับ</button>
+      <button id="c-guests" class="btn ghost" title="จัดการผู้เล่น">👥 ผู้เล่น</button>
+      <button id="c-back" class="btn ghost" title="กลับห้องรอ (ล้างคะแนน เก็บผู้เล่นไว้)">↺ ห้องรอ</button>
+      <span class="keys">Space = ถัดไป • S = เฉลย • F = เต็มจอ</span>
     </div>
 
     <div id="guests-panel" hidden>
@@ -674,10 +696,6 @@
         <div id="gp-list" class="gp-list"></div>
       </div>
     </div>
-    <p class="hint center" style="margin:6px 0 0">
-      คีย์ลัด: <b>Space</b> = ถัดไป/เริ่ม • <b>S</b> = เฉลยเลย • <b>F</b> = เต็มจอ
-      &nbsp;•&nbsp; <a href="/admin" target="_blank" style="color:var(--gold-soft)">แก้ไขคำถาม</a>
-    </p>
   </section>
 </div>
 
