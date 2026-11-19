@@ -672,14 +672,31 @@
     if (saved && saved.name && !$('in-name').value) $('in-name').value = saved.name;
     if (pin) $('in-pin').value = pin;
     if (joined || !(saved && saved.id && saved.pin && saved.pin === pin)) return;
+    resumeSaved(saved, pin, ++resumeRun, 0);
+  });
+
+  // Coming back to our game. If the server has just restarted, it may not have
+  // the game back yet (the projector puts it back a moment later), so "wrong
+  // PIN" is retried for about a minute before giving up.
+  var resumeRun = 0;
+  function resumeSaved(saved, pin, run, tries) {
+    if (run !== resumeRun || joined) return;
     joinPending = true;
     attemptJoin({ pin: pin, name: saved.name, playerId: saved.id }, function (err) {
-      if (!err) return;
+      if (!err || run !== resumeRun || joined) return;
+      if ((err === 'bad-pin' || err === 'timeout') && tries < 20) {
+        joinPending = false;
+        setJoinError('กำลังต่อกลับเข้าเกม… รอสักครู่');
+        show('s-join');
+        setTimeout(function () { resumeSaved(saved, pin, run, tries + 1); }, 3000);
+        return;
+      }
       joined = false;
+      setJoinError('');
       setConnectionUi(socket.connected);
       show('s-join');
     });
-  });
+  }
 
   socket.on('state', function (s) {
     // A join can succeed on the server while its ack is lost or arrives after our

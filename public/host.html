@@ -474,6 +474,13 @@
   .grow { flex:1; display:flex; flex-direction:column; justify-content:center; }
   .gate { max-width:420px; margin:auto; }
 
+  /* The "game restored" note after the server came back empty. */
+  .restore-note { position:fixed; left:50%; top:clamp(70px, 9vh, 120px); translate:-50% 0; z-index:60;
+                  background:#1f5f3a; color:#eafff1; border:3px solid #8ff0b4; border-radius:8px;
+                  box-shadow:0 0 0 3px #0e2a1a, 0 8px 24px rgba(0,0,0,.5);
+                  padding:12px 22px; font-size:clamp(16px, 2.2vh, 30px); font-weight:800; max-width:90vw; text-align:center; }
+  .restore-note[hidden] { display:none; }
+
   /* ---------- big screens (Full HD projectors and TVs) ----------
      Everything below grows with the screen HEIGHT, from today's size (the
      minimum, so a laptop or 720p projector looks exactly as before) up to a

@@ -1005,7 +1005,95 @@
     if (saved) authenticate(saved);
   });
 
-  socket.on('state', function (s) { state = s; render(); renderGuests(); });
+  /* ---- backup: the projector keeps a copy of the game ----
+     Render's free plan loses everything when it restarts. This screen already
+     holds the PIN, every guest, their scores and where the game is, so it keeps
+     that copy (in memory and in this laptop's storage) and, if the server comes
+     back EMPTY, hands it back: same PIN, same guests and scores, phones reconnect
+     on their own and the host presses Next to carry on. */
+  var BACKUP_KEY = 'wq.backup';
+  var BACKUP_MAX_AGE = 4 * 60 * 60 * 1000;
+  var backupTimer = null, sawDisconnect = false, restoring = false, offeredStored = false;
+
+  function backupFrom(s) {
+    return {
+      savedAt: Date.now(), pin: s.pin, phase: s.phase, index: s.index, joinLocked: s.joinLocked,
+      players: (s.players || []).map(function (p) {
+        return { id: p.id, name: p.name, score: p.score, streak: p.streak || 0, bell: p.bell || null,
+                 look: p.look || null, joinedAt: p.joinedAt };
+      })
+    };
+  }
+  var memBackup = null;
+  function saveBackupSoon() {
+    if (restoring || backupTimer) return;
+    backupTimer = setTimeout(function () {
+      backupTimer = null;
+      if (!state || !state.isHost || restoring) return;
+      memBackup = backupFrom(state);
+      try { localStorage.setItem(BACKUP_KEY, JSON.stringify(memBackup)); } catch (e) { /* storage off: memory copy still works */ }
+    }, 600);
+  }
+  function storedBackup() {
+    var b = null;
+    try { b = JSON.parse(localStorage.getItem(BACKUP_KEY) || 'null'); } catch (e) { /* ignore */ }
+    return b && Date.now() - b.savedAt < BACKUP_MAX_AGE ? b : null;
+  }
+  // A game worth bringing back, and a server that has clearly lost it.
+  function isLostGame(b, s) {
+    return !!(b && b.players && b.players.length && s && s.isHost && s.phase === 'lobby' &&
+              (!s.players || s.players.length === 0) && s.pin !== b.pin);
+  }
+  function restore(b) {
+    restoring = true;
+    socket.emit('host:restore', b, function (res) {
+      restoring = false;
+      if (res && res.ok) {
+        showRestoreNote('กู้เกมกลับมาแล้ว: PIN ' + res.pin + ', แขก ' + res.players + ' คน กด "ถัดไป →" เพื่อเล่นต่อ');
+      } else {
+        saveBackupSoon();
+      }
+    });
+  }
+  function showRestoreNote(msg) {
+    var n = document.getElementById('restore-note');
+    if (!n) {
+      n = document.createElement('div');
+      n.id = 'restore-note';
+      n.className = 'restore-note';
+      n.setAttribute('role', 'status');
+      document.body.appendChild(n);
+    }
+    n.textContent = '♻️ ' + msg;
+    n.hidden = false;
+    clearTimeout(showRestoreNote.t);
+    showRestoreNote.t = setTimeout(function () { n.hidden = true; }, 12000);
+  }
+
+  socket.on('disconnect', function () { sawDisconnect = true; });
+
+  socket.on('state', function (s) {
+    // The server came back without our game: put it back before showing anything.
+    if (s && s.isHost && !restoring) {
+      var reconnected = sawDisconnect;
+      sawDisconnect = false;
+      if (reconnected && isLostGame(memBackup, s)) { restore(memBackup); return; }
+      // This page was reloaded (or reopened) and finds an empty server while the
+      // laptop still has a recent game: ask, because that could be on purpose.
+      if (!offeredStored && !memBackup) {
+        offeredStored = true;
+        var stored = storedBackup();
+        if (isLostGame(stored, s) && confirm('พบเกมที่ค้างอยู่ในเครื่องนี้ (แขก ' + stored.players.length +
+            ' คน, ข้อ ' + Math.max(0, stored.index + 1) + ')\n\nกู้เกมนี้กลับมาเล่นต่อไหม? PIN และคะแนนเดิมจะกลับมา')) {
+          restore(stored);
+          return;
+        }
+      }
+    }
+    if (restoring) return;
+    state = s; render(); renderGuests();
+    saveBackupSoon();
+  });
 
   // Guests arriving/leaving come through as deltas rather than a full state dump,
   // so a 150-person join rush stays cheap on the server (see server note).
@@ -1023,6 +1111,7 @@
     } else {
       state.players.push(r.player);
     }
+    saveBackupSoon();
     state.playerCount = r.playerCount;
     $('st-players').textContent = r.playerCount;
     if (state.phase === 'lobby') renderLobby();

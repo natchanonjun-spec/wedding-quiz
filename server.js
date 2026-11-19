@@ -212,10 +212,23 @@ function restoreSnapshot() {
     return; // no snapshot - fresh start
   }
   if (!s || Date.now() - s.savedAt > SNAPSHOT_MAX_AGE_MS) return;
+  if (applySaved(s)) console.log('Restored ' + game.players.size + ' players from snapshot (phase=' + game.phase + ').');
+}
 
-  game.pin = s.pin || game.pin;
+const intIn = (v, lo, hi, dflt) => {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= lo && n <= hi ? n : dflt;
+};
+
+// Puts a saved game back: from the disk snapshot after a restart, or from the
+// projector's own copy when the server came back empty (Render's free plan
+// loses its disk on every restart). Everything is re-validated, since the
+// second source is a browser.
+function applySaved(s) {
+  if (!s || !/^\d{6}$/.test(String(s.pin || ''))) return false;
+  game.pin = String(s.pin);
   game.joinLocked = !!s.joinLocked;
-  game.index = Number.isInteger(s.index) ? s.index : -1;
+  game.index = intIn(s.index, -1, game.questions.length, -1);
   // Never resume mid-question: park on the scoreboard so the host can carry on cleanly.
   game.phase = (s.phase === 'lobby' || s.phase === 'ended') ? s.phase
     : s.phase === 'rules' ? 'lobby' : 'scoreboard';
@@ -223,23 +236,27 @@ function restoreSnapshot() {
   // and "next" replays it, instead of skipping it. (Bells rung for it stay rung.)
   if (s.phase === 'question') game.index = Math.max(-1, game.index - 1);
 
-  for (const p of s.players || []) {
+  game.players.clear();
+  game.answers = new Map();
+  for (const p of (Array.isArray(s.players) ? s.players : []).slice(0, MAX_PLAYERS)) {
+    if (!p || typeof p.id !== 'string' || !p.id || p.id.length > 64) continue;
+    const name = cleanName(p.name);
+    if (!name) continue;
     game.players.set(p.id, {
       id: p.id,
-      name: p.name,
-      score: p.score || 0,
-      streak: p.streak || 0,
-      joinedAt: p.joinedAt || Date.now(),
+      name,
+      score: intIn(p.score, 0, 1e7, 0),
+      streak: intIn(p.streak, 0, 1000, 0),
+      joinedAt: intIn(p.joinedAt, 0, 1e14, Date.now()),
       connected: false,
       lastResult: null,
       bell: p.bell === 'armed' || p.bell === 'used' ? p.bell : null,
       look: cleanLook(p.look),
     });
   }
-  console.log('Restored ' + game.players.size + ' players from snapshot (phase=' + game.phase + ').');
+  return true;
 }
 
-restoreSnapshot();
 
 /* ------------------------------------------------------------------ *
  * HTTP
@@ -405,6 +422,7 @@ function hostState() {
   state.isHost = true;
   state.players = playerList().map((p) => ({
     id: p.id, name: p.name, score: p.score, connected: p.connected, look: p.look || null,
+    streak: p.streak || 0, bell: p.bell || null, joinedAt: p.joinedAt,
   }));
   state.answered = game.answers.size;
   state.bellsArmed = bellsArmed();
@@ -473,6 +491,9 @@ function emitRoster(op, player) {
       score: player.score || 0,
       connected: !!player.connected,
       look: player.look || null,
+      streak: player.streak || 0,
+      bell: player.bell || null,
+      joinedAt: player.joinedAt,
     },
     playerCount: game.players.size,
   });
@@ -724,6 +745,20 @@ io.on('connection', (socket) => {
     broadcastState();
   }));
 
+  // The projector hands back the game it was showing, after this server came
+  // back up empty (a restart on a host with no persistent disk). Only onto an
+  // empty, untouched server, so it can never overwrite a game in progress.
+  socket.on('host:restore', hostOnly((payload, ack) => {
+    const reply = acker(ack);
+    if (game.phase !== 'lobby' || game.players.size > 0) return reply({ ok: false, error: 'not-empty' });
+    clearQuestionTimer();
+    if (!applySaved(payload)) return reply({ ok: false, error: 'bad-data' });
+    console.log('Restored ' + game.players.size + ' players from the projector (phase=' + game.phase + ').');
+    reply({ ok: true, players: game.players.size, pin: game.pin });
+    broadcastState();
+    snapshot();
+  }));
+
   socket.on('host:reset', hostOnly((payload) => {
     resetGame(!!(payload && payload.keepPlayers));
   }));
@@ -817,6 +852,7 @@ io.on('connection', (socket) => {
     reply({ ok: true, bell: player.bell });
     socket.emit('state', playerState(player));
     io.to('hosts').emit('bells', { armed: bellsArmed() });
+    emitRoster('upsert', player);          // keeps the projector's backup copy current
     snapshotSoon();
   });
 
@@ -831,6 +867,10 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// After every definition above: a saved guest's look is checked by cleanLook(),
+// whose tables are consts - restoring any earlier hit them before they existed.
+restoreSnapshot();
 
 server.listen(PORT, () => {
   console.log('----------------------------------------------------');
