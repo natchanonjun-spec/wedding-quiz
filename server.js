@@ -219,6 +219,9 @@ function restoreSnapshot() {
   // Never resume mid-question: park on the scoreboard so the host can carry on cleanly.
   game.phase = (s.phase === 'lobby' || s.phase === 'ended') ? s.phase
     : s.phase === 'rules' ? 'lobby' : 'scoreboard';
+  // Down mid-question: that question's answers were never saved, so step back one
+  // and "next" replays it, instead of skipping it. (Bells rung for it stay rung.)
+  if (s.phase === 'question') game.index = Math.max(-1, game.index - 1);
 
   for (const p of s.players || []) {
     game.players.set(p.id, {
