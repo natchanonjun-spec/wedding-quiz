@@ -237,13 +237,13 @@
 
   /* ---------------- the world behind the screen ---------------- */
 
-  // The couple's chosen order: the lobby is the Thong Smith restaurant at night,
+  // The couple's chosen order: the lobby is the wedding arch (a calm backdrop for the group photo),
   // then one scene per question - valley, reception, beach, wine gazebo, Golden
   // Mount, wedding ceremony, sea. Questions are split into equal stretches
   // over this list (with 7 questions, one scene each). The final leaderboard is
   // the city at night, and the podium is the night party.
   var DAY = ['valley', 'noon', 'beach', 'sunset', 'goldenmount', 'morning', 'sea'];
-  var SCENE_FX = { lobby: 'fireflies', morning: 'petals', sea: 'none', noon: 'none', valley: 'none',
+  var SCENE_FX = { lobby: 'petals', morning: 'petals', sea: 'none', noon: 'none', valley: 'none',
                    sunset: 'petals', beach: 'none', goldenmount: 'none', city: 'none', night: 'fireflies' };
   var currentScene = 'lobby';
 
@@ -285,13 +285,20 @@
     return location.origin;
   }
 
-  // Each guest becomes a little pixel wedding guest (pixelfolk.js) walking
-  // left to right across the lobby screen, forever, until the game starts. A
-  // cheap string hash on the player's own id picks their look/lane/speed
-  // deterministically, so the same guest always looks the same and a
-  // reconnect doesn't reshuffle anyone.
-  var LANES = 6;
-  var runnerNodes = {};        // player id -> element, kept alive across renders
+  /* The guests as a crowd of little pixel people (pixelfolk.js), facing the
+     camera and breathing in place.
+       lobby    : a group photo - rows stacked into a triangle, the couple
+                  front and centre, each new guest popping into the next spot.
+       the game : the same guests stand in two strips down the left and right
+                  of the screen (question, reveal, leaderboard).
+     One element per guest, kept alive and only moved, so a re-render or a
+     reconnect never redraws anyone. A cheap hash of the player's id picks
+     their look, so the same guest always looks the same. */
+  var crowdNodes = {};         // player id -> element
+  var coupleNode = null;
+  var fieldPrimed = false;
+  var crowdMode = '';          // 'photo' | 'sides' | ''
+  var bellImg = '';
 
   function hashId(id) {
     var h = 0;
@@ -299,88 +306,291 @@
     return Math.abs(h);
   }
 
-  // Sprites scale by whole pixels only, so every art pixel stays square.
+  // Sprites scale by whole pixels where they can, so art pixels stay square.
+  function pixelScale() { return Math.max(2, Math.floor(window.innerHeight / 320)); }
   function setPixelScale() {
-    document.documentElement.style.setProperty('--ps', Math.max(2, Math.floor(window.innerHeight / 320)));
+    document.documentElement.style.setProperty('--ps', pixelScale());
   }
   setPixelScale();
-  window.addEventListener('resize', setPixelScale);
+  window.addEventListener('resize', function () { setPixelScale(); layoutSoon(); });
 
-  function makeRunner(p) {
-    var h = hashId(p.id);
-    var el = document.createElement('div');
-    el.className = 'runner' + ((Math.floor(h / 16) % 3) === 0 ? ' left' : '');   // a third walk right-to-left
-    var lane = Math.floor(h / 8) % LANES;
-    el.style.setProperty('--lane', lane / (LANES - 1));
-    el.style.zIndex = lane;                                                      // nearer lanes in front
-    el.style.animationDuration = (9 + (Math.floor(h / 64) % 6)) + 's';           // 9-14s per lap
-    el.style.animationDelay = -((Math.floor(h / 1024) % 1000) / 100) + 's';      // starts mid-stride, not lined up
-
-    var sprite = document.createElement('div');
-    sprite.className = 'sprite';
-    sprite.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(h, window.PixelFolk.choiceForce(p.look)).toDataURL() + ')';
-    sprite.style.animationDelay = -((h % 7) / 10) + 's';                        // feet out of step with each other
-    el.appendChild(sprite);
-
+  function addParts(el, withKick, id) {
+    var bell = document.createElement('i');
+    bell.className = 'bell';
+    el.appendChild(bell);
+    var wave = document.createElement('i');
+    wave.className = 'wave';
+    el.appendChild(wave);
     var tag = document.createElement('div');
     tag.className = 'tag';
     el.appendChild(tag);
+    if (withKick) {
+      var kick = document.createElement('button');
+      kick.className = 'kick';
+      kick.title = 'เตะออก';
+      kick.addEventListener('click', function () { socket.emit('host:kick', { id: id }); });
+      el.appendChild(kick);
+    }
+  }
 
-    var kick = document.createElement('button');
-    kick.className = 'kick';
-    kick.title = 'เตะออก';
-    kick.addEventListener('click', function () { socket.emit('host:kick', { id: p.id }); });
-    el.appendChild(kick);
-
+  function makePose(p) {
+    var h = hashId(p.id);
+    var el = document.createElement('div');
+    el.className = 'pose';
+    var body = document.createElement('div');
+    body.className = 'body';
+    var sprite = document.createElement('div');
+    sprite.className = 'sprite';
+    sprite.style.backgroundImage = 'url(' + window.PixelFolk.makeSheet(h, window.PixelFolk.choiceForce(p.look), 'front').toDataURL() + ')';
+    sprite.style.animationDelay = -((h % 17) / 10) + 's';                       // nobody breathes in step
+    body.appendChild(sprite);
+    el.appendChild(body);
+    addParts(el, true, p.id);
     return el;
   }
 
-  // The couple leads the parade in the front lane, a little slower than the
-  // guests - always there, even before anyone joins. Not a player: no kick.
-  var coupleNode = null;
-
+  // The bride and groom, front and centre of the photo. Not players: no kick.
   function makeCouple() {
     var el = document.createElement('div');
-    el.className = 'runner couple';
-    el.style.setProperty('--lane', 1);
-    el.style.zIndex = LANES + 1;
-    el.style.animationDuration = '18s';
-    el.style.animationDelay = '-6s';
-    window.PixelFolk.coupleSheets().forEach(function (sheet) {
+    el.className = 'pose couple';
+    var body = document.createElement('div');
+    body.className = 'body';
+    window.PixelFolk.coupleSheets('front').forEach(function (sheet) {
       var sprite = document.createElement('div');
       sprite.className = 'sprite';
       sprite.style.backgroundImage = 'url(' + sheet.toDataURL() + ')';
-      el.appendChild(sprite);
+      body.appendChild(sprite);
     });
-    var tag = document.createElement('div');
-    tag.className = 'tag';
-    tag.textContent = '💍 เจ้าสาว & เจ้าบ่าว';
-    el.appendChild(tag);
+    el.appendChild(body);
+    addParts(el, false);
+    el.querySelector('.tag').textContent = '💍 เจ้าสาว & เจ้าบ่าว';
     return el;
   }
 
-  function renderField() {
+  function guestOrder() {
+    return state.players.slice().sort(function (a, b) {
+      return ((a.joinedAt || 0) - (b.joinedAt || 0)) || (a.id < b.id ? -1 : 1);
+    });
+  }
+
+  // Make sure every guest has an element (and only current guests do).
+  function syncCrowd() {
+    if (!state || !state.players) return;
+    if (!bellImg && window.PixelFolk) {
+      bellImg = window.PixelFolk.namedIcon('bell').toDataURL();
+      document.documentElement.style.setProperty('--bell-img', 'url(' + bellImg + ')');
+    }
     var field = $('field');
     if (!coupleNode) { coupleNode = makeCouple(); field.appendChild(coupleNode); }
     var seen = {};
     state.players.forEach(function (p) {
       seen[p.id] = true;
-      var el = runnerNodes[p.id];
+      var el = crowdNodes[p.id];
       if (!el) {
-        el = makeRunner(p);
-        runnerNodes[p.id] = el;
-        field.appendChild(el);
-        if (fieldPrimed && state.phase === 'lobby') snd('guestJoin');
+        el = makePose(p);
+        crowdNodes[p.id] = el;
+        (crowdMode === 'sides' ? $('crowd-l') : field).appendChild(el);
+        if (fieldPrimed && state.phase === 'lobby') {
+          snd('guestJoin');
+          el.classList.add('new', 'fresh');             // pops into the photo, name up for a few seconds
+          setTimeout(function () { el.classList.remove('new'); }, 700);
+          setTimeout(function () { el.classList.remove('fresh'); }, 4500);
+        }
       }
       el.classList.toggle('off', !p.connected);
+      el.classList.toggle('armed', p.bell === 'armed');
       el.querySelector('.tag').textContent = p.name;
     });
-    for (var id in runnerNodes) {
-      if (!seen[id]) { runnerNodes[id].remove(); delete runnerNodes[id]; }
+    for (var id in crowdNodes) {
+      if (!seen[id]) { crowdNodes[id].remove(); delete crowdNodes[id]; }
     }
     fieldPrimed = true;
+    layoutSoon();
   }
-  var fieldPrimed = false;
+
+  var layoutTimer = null;
+  function layoutSoon() {
+    if (layoutTimer) return;
+    layoutTimer = setTimeout(function () { layoutTimer = null; layoutCrowd(); }, 30);
+  }
+
+  function modeFor(s) {
+    if (!s) return '';
+    if (s.phase === 'lobby') return 'photo';
+    if (s.phase === 'question' || s.phase === 'reveal' || s.phase === 'scoreboard') return 'sides';
+    return '';
+  }
+
+  // Move an element without letting it fly across the screen from its old box.
+  function placeIn(el, box) {
+    if (el.parentNode === box) return;
+    el.classList.add('jump');
+    el._pos = '';
+    box.appendChild(el);
+  }
+  function moveTo(el, x, y, z) {
+    var pos = Math.round(x) + 'px ' + Math.round(y) + 'px';
+    if (el._pos !== pos) {
+      if (!el._pos) el.classList.add('jump');      // first spot: appear there, don't glide in from the corner
+      el._pos = pos; el.style.translate = pos;
+    }
+    el.style.zIndex = z;
+  }
+
+  function layoutCrowd() {
+    if (!state || !state.players) return;
+    crowdMode = modeFor(state);
+    var sides = crowdMode === 'sides' && state.players.length > 0;
+    document.body.classList.toggle('crowd-on', sides);
+    var guests = guestOrder();
+    if (crowdMode === 'photo') layoutPhoto(guests);
+    else if (sides) layoutSides(guests);
+    setTimeout(function () {
+      for (var id in crowdNodes) crowdNodes[id].classList.remove('jump');
+    }, 60);
+  }
+
+  // Rows from the front: B, B-d, B-2d ... spots (B even, so the couple has the
+  // two middle spots of the front row). The smallest triangle that fits everyone.
+  function photoRows(n, d) {
+    for (var B = 2; ; B += 2) {
+      var caps = [], cap = 0;
+      for (var c = B; c >= 1; c -= d) { caps.push(c); cap += c; }
+      if (cap >= n) return caps;
+    }
+  }
+  // Spots in a row, middle first, then out to both sides.
+  function middleOut(c) {
+    var ks = [];
+    for (var k = 0; k < c; k++) ks.push(k);
+    var mid = (c - 1) / 2;
+    return ks.sort(function (a, b) { return (Math.abs(a - mid) - Math.abs(b - mid)) || (a - b); });
+  }
+
+  function layoutPhoto(guests) {
+    var field = $('field');
+    guests.forEach(function (p) { placeIn(crowdNodes[p.id], field); });
+    var W = field.clientWidth, H = field.clientHeight;
+    if (!W || !H) return;
+    // Room for a name over the back row, and for the couple's caption under their feet.
+    var tagRoom = Math.max(22, window.innerHeight * 0.015 * 1.6 + 8);
+    // A steep triangle while the crowd is small; a wider, flatter one when a
+    // big crowd would otherwise shrink to fit the height.
+    var caps = null, s = 0;
+    for (var d = 3; d <= 9; d++) {
+      var cs = photoRows(guests.length + 2, d);
+      var sc = Math.min(pixelScale() + 1,
+        (W - 16) / (18 * (0.8 * (cs[0] - 1) + 1)),
+        (H - 2 * tagRoom) / (35 * (1.15 + 0.4 * (cs.length - 1))));
+      if (sc > s + 0.2) { s = sc; caps = cs; }
+    }
+    var B = caps[0], R = caps.length;
+    s = Math.max(1, Math.floor(s * 4) / 4);
+    field.style.setProperty('--s', s);
+    var sw = 18 * s, sh = 35 * s, u = sw * 0.8, v = sh * 0.4;
+    var foot = H - sh - tagRoom;
+
+    moveTo(coupleNode, W / 2 - sw, foot, 1000);
+    var spots = [];
+    caps.forEach(function (c, row) {
+      middleOut(c).forEach(function (k) {
+        if (row === 0 && (k === c / 2 - 1 || k === c / 2)) return;   // the couple's two spots
+        spots.push({ x: W / 2 + (k - (c - 1) / 2) * u - sw / 2, y: foot - row * v, z: (R - row) * 10 });
+      });
+    });
+    guests.forEach(function (p, i) {
+      var sp = spots[i];
+      moveTo(crowdNodes[p.id], sp.x, sp.y, sp.z);
+    });
+  }
+
+  function layoutSides(guests) {
+    var hdr = document.querySelector('#s-main .hdr').getBoundingClientRect();
+    var ctl = document.querySelector('#s-main .controls').getBoundingClientRect();
+    var top = hdr.bottom + 8, H = Math.max(120, ctl.top - 8 - top);
+    var W = Math.round(Math.max(80, Math.min(230, window.innerWidth * 0.1)));
+    var pad = parseFloat(getComputedStyle(document.querySelector('body > .wrap')).paddingLeft) || 0;
+    document.body.style.setProperty('--crowd-pad', Math.max(0, W + 14 - pad) + 'px');
+    var L = [], Rt = [];
+    guests.forEach(function (p, i) { (i % 2 ? Rt : L).push(p); });
+    [[$('crowd-l'), L, false], [$('crowd-r'), Rt, true]].forEach(function (side) {
+      var box = side[0];
+      box.style.top = top + 'px';
+      box.style.height = H + 'px';
+      box.style.width = W + 'px';
+      side[1].forEach(function (p) { placeIn(crowdNodes[p.id], box); });
+      placeStrip(box, side[1], W, H, side[2]);
+    });
+  }
+
+  // A standing crowd in a narrow strip: front row at the bottom, each row
+  // behind half a person to the side so faces show between heads.
+  function placeStrip(box, list, W, H, mirror) {
+    var m = list.length;
+    if (!m) return;
+    var best = null;
+    for (var c = 1; c <= 12; c++) {
+      var rows = Math.ceil(m / c);
+      var sW = W / (18 * (0.8 * (c - 1) + 1 + (rows > 1 ? 0.4 : 0)));
+      var sH = H / (35 * (1 + 0.5 * (rows - 1)));
+      var sc = Math.min(pixelScale(), sW, sH);
+      if (!best || sc > best.s + 1e-6) best = { s: sc, c: c, rows: rows };
+    }
+    var s = Math.max(0.75, Math.floor(best.s * 4) / 4);
+    box.style.setProperty('--s', s);
+    var sw = 18 * s, sh = 35 * s, u = sw * 0.8, v = sh * 0.5, cols = best.c;
+    var blockW = (cols - 1) * u + sw + (best.rows > 1 ? u / 2 : 0);
+    var x0 = (W - blockW) / 2;
+    list.forEach(function (p, j) {
+      var r = Math.floor(j / cols), k = j % cols;
+      var x = x0 + k * u + (r % 2 ? u / 2 : 0);
+      if (mirror) x = W - x - sw;
+      moveTo(crowdNodes[p.id], x, H - sh - r * v, 1000 - r);
+    });
+  }
+
+  /* Ring the bell: the guest's little person jumps, the bell swings over their
+     head and a gold ring spreads out, with their name. While the bet stands a
+     small bell stays over their head (.armed). If nobody can see them right
+     now (the rules screen), a note pops up instead. */
+  function ringEffect(id, name) {
+    var el = crowdNodes[id];
+    var visible = el && (crowdMode === 'photo' || (crowdMode === 'sides' && document.body.classList.contains('crowd-on')));
+    if (!visible) { bellToast(name); return; }
+    el.classList.remove('ring');
+    void el.offsetWidth;
+    el.classList.add('ring');
+    clearTimeout(el._ringT);
+    el._ringT = setTimeout(function () { el.classList.remove('ring'); }, 2400);
+  }
+
+  function bellToast(name) {
+    var box = $('bell-toasts');
+    var t = document.createElement('div');
+    t.className = 'bell-toast';
+    t.textContent = '🔔 ' + name + ' กดกระดิ่ง!';
+    box.appendChild(t);
+    while (box.children.length > 4) box.firstChild.remove();
+    setTimeout(function () { t.remove(); }, 3000);
+  }
+
+  // At the reveal: the guests who bet on this question - gold if they won it, grey if not.
+  function bellOutcome() {
+    var b = state.bellResults || { won: [], lost: [] };
+    if (!b.won.length && !b.lost.length) return;
+    var byName = {};
+    state.players.forEach(function (p) { (byName[p.name] = byName[p.name] || []).push(p.id); });
+    [[b.won, 'bellwin'], [b.lost, 'belllose']].forEach(function (pair) {
+      pair[0].forEach(function (name) {
+        (byName[name] || []).forEach(function (id) {
+          var el = crowdNodes[id];
+          if (!el) return;
+          el.classList.add(pair[1]);
+          setTimeout(function () { el.classList.remove(pair[1]); }, 3200);
+        });
+      });
+    });
+  }
 
   function renderLobby() {
     $('join-url').textContent = joinUrl().replace(/^https?:\/\//, '');
@@ -395,7 +605,7 @@
         .catch(function () { $('qr').style.display = 'none'; });
     }
 
-    renderField();
+    syncCrowd();
 
     $('lobby-hint').textContent = state.joinLocked
       ? '🔒 ปิดรับผู้เล่นแล้ว'
@@ -959,7 +1169,7 @@
       }
       case 'reveal': {
         var enteredReveal = view('reveal');
-        if (enteredReveal) snd('reveal');
+        if (enteredReveal) { snd('reveal'); setTimeout(bellOutcome, 600); }
         paintImage('rv-img', 'v-reveal');
         renderReveal(enteredReveal);
         break;
@@ -986,6 +1196,7 @@
       default:
         break;
     }
+    syncCrowd();
   }
 
   /* ---------------- socket ---------------- */
@@ -1107,7 +1318,9 @@
     if (r.op === 'remove') {
       if (at >= 0) state.players.splice(at, 1);
     } else if (at >= 0) {
+      var rang = r.player.bell === 'armed' && state.players[at].bell !== 'armed';
       state.players[at] = r.player;
+      if (rang) ringEffect(id, r.player.name);
     } else {
       state.players.push(r.player);
     }
@@ -1118,6 +1331,7 @@
     // A guest admitted mid-question changes the denominator on the projector, and
     // `tally` only fires when someone answers -- so update it here too.
     if (state.phase === 'question') $('q-total').textContent = r.playerCount;
+    syncCrowd();
     renderGuests();
   });
 

@@ -75,16 +75,9 @@
   .qr svg { width:100%; height:100%; display:block; }
   .url { font-size:26px; font-weight:800; word-break:break-all; }
 
-  /* Lobby "field": each joined guest becomes a little pixel character running
-     left to right forever. Runner elements are created once per player and
-     never rebuilt while they're still around (see renderField() in host.js),
-     so a new join never restarts everyone else's run mid-stride. */
-  /* Not ".field" - style.css already uses that name for text inputs. */
-  /* Never shorter than one guest plus their name tag, or feet get clipped. */
-  /* --tagh: room above the back lane for a name tag (font size as .runner .tag). */
-  .runfield { --tagh:calc(clamp(11px, 1.5vh, 22px) * 1.9 + 8px);
-              container-type:inline-size; position:relative; margin-top:14px; flex:0 1 auto; min-height:calc(35px * var(--ps) + var(--tagh));
-              height:clamp(170px, 26vh, 320px); overflow:hidden; }
+  /* The group photo takes all the room left under the PIN (host.js fits it). */
+  #field { position:relative; flex:1 1 auto; margin-top:10px; min-height:calc(35px * var(--ps) + 40px); }
+  #v-lobby { overflow:hidden; }
 
   /* ---------- the world behind the projector ----------
      Full-screen pixel-art scenes generated locally (SDXL + pixel-art-xl LoRA,
@@ -98,7 +91,7 @@
                   background-size:cover; background-position:center bottom;
                   image-rendering:pixelated; }
   #world .scene.on { opacity:1; }
-  #world .scene[data-k="lobby"]   { background-image:url(img/world/restaurant.png); }   /* supplied by the couple */
+  #world .scene[data-k="lobby"]   { background-image:url(img/world/morning.png); }   /* the wedding arch: calm behind the group photo */
   #world .scene[data-k="morning"] { background-image:url(img/world/morning.png); }
   #world .scene[data-k="noon"]    { background-image:url(img/world/noon.png); }
   #world .scene[data-k="sunset"]  { background-image:url(img/world/sunset.png); }
@@ -201,33 +194,81 @@
   .pod .nm { display:inline-block; line-height:1.25; background:rgba(58,33,18,.88); border:3px solid #d69a5a;
              border-radius:6px; box-shadow:0 0 0 2px #4a2711; padding:4px 12px; }
   .bars .lbl, .bars .n { text-shadow:0 2px 0 #2a1408, 0 0 8px rgba(0,0,0,.6); }
-  /* Moves with `translate`, which the GPU handles without re-laying-out the
-     page; `left` cost a layout pass per frame for every guest (200 at a full
-     party). A % translate would resolve against the runner's own ~46px, so the
-     distance is in 100cqw, the width of the field (.runfield is the container). */
-  /* Guest sprites (pixelfolk.js) are 18x35 art pixels, scaled by a whole
-     number (--ps, set in host.js from the screen height) so pixels stay square.
-     --lane (0..1) spreads them top to bottom without ever clipping the feet. */
-  :root { --ps:3; }
-  .runner { --sw:calc(18px * var(--ps)); --sh:calc(35px * var(--ps));
-            position:absolute; left:calc(-1 * var(--sw)); width:var(--sw);
-            top:calc(var(--tagh) + (100% - var(--tagh) - var(--sh)) * var(--lane, 0));
-            animation-name:runX; animation-timing-function:linear; animation-iteration-count:infinite; }
-  .runner .sprite { width:var(--sw); height:var(--sh); background-size:400% 100%; background-repeat:no-repeat;
-                    image-rendering:pixelated; filter:drop-shadow(0 3px 0 rgba(20,8,2,.35));
-                    animation:walk .64s steps(4) infinite; }
-  @keyframes walk { from { background-position:0 0; } to { background-position:133.333% 0; } }
-  .runner.couple { width:calc(var(--sw) * 2); display:flex; }
-  .runner.couple .tag { background:rgba(128,84,24,.95); border-color:#f0c070; font-size:12px; }
-  .runner .tag { position:absolute; left:50%; bottom:100%; transform:translateX(-50%); margin-bottom:2px;
-                 white-space:nowrap; font-size:11px; font-weight:800; background:rgba(58,33,18,.88);
-                 border:2px solid #d69a5a; padding:1px 7px; border-radius:999px; pointer-events:none; }
-  .runner.off { opacity:.35; filter:grayscale(1); }
-  /* Facing left: the same lap run backwards, the sprite mirrored (not the tag). */
-  .runner.left { animation-direction:reverse; }
-  .runner.left .sprite { transform:scaleX(-1); }
-  .runner .kick { position:absolute; inset:-6px; background:none; border:none; cursor:pointer; opacity:0; }
-  @keyframes runX { from { translate:0 0; } to { translate:calc(100cqw + var(--sw)) 0; } }
+  /* ---------- the guests (host.js: syncCrowd / layoutCrowd) ----------
+     Little pixel people facing the camera (pixelfolk.js, 18x35 art pixels),
+     scaled by --s per box so 2 or 200 guests always fit. host.js places each
+     with `translate`, which the GPU moves without a layout pass; a change of
+     spot glides there. Lobby: the group photo in #field. In the game: the two
+     strips #crowd-l / #crowd-r down the sides, the views moved in to make room. */
+  .crowd { --s:3; --sw:calc(18px * var(--s)); --sh:calc(35px * var(--s)); }
+  .crowd.side { position:fixed; z-index:1; pointer-events:none; display:none; }
+  #crowd-l { left:6px; } #crowd-r { right:6px; }
+  body.crowd-on .crowd.side { display:block; }
+  body.crowd-on #v-q, body.crowd-on #v-reveal, body.crowd-on #v-board { padding-inline:var(--crowd-pad, 0px); }
+  .pose { position:absolute; left:0; top:0; width:var(--sw); height:var(--sh);
+          transition:translate .7s cubic-bezier(.3,1.25,.5,1); }
+  .pose.jump { transition:none; }
+  .pose .body { width:100%; height:100%; transform-origin:50% 100%; }
+  .pose.new .body { animation:poseIn .6s cubic-bezier(.3,1.5,.5,1) both; }
+  @keyframes poseIn { from { transform:translateY(-70%) scale(.4); opacity:0; } 50% { opacity:1; } to { transform:none; opacity:1; } }
+  .pose .sprite { width:var(--sw); height:var(--sh); background-size:400% 100%; background-repeat:no-repeat;
+                  image-rendering:pixelated; filter:drop-shadow(0 2px 0 rgba(20,8,2,.35));
+                  animation:breathe 1.8s steps(4) infinite; }
+  @keyframes breathe { from { background-position:0 0; } to { background-position:133.333% 0; } }
+  .pose.couple { width:calc(var(--sw) * 2); }
+  .pose.couple .body { display:flex; transform:scale(1.15); }
+  .pose .tag { display:none; position:absolute; left:50%; bottom:100%; transform:translateX(-50%); margin-bottom:2px;
+               white-space:nowrap; font-size:clamp(11px, 1.5vh, 22px); font-weight:800; line-height:1.5;
+               background:rgba(58,33,18,.88); border:2px solid #d69a5a; padding:0 .6em; border-radius:999px;
+               pointer-events:none; z-index:3; }
+  /* Names: one at a time as each guest arrives (all at once would cover the faces behind). */
+  .pose.fresh .tag, .pose.couple .tag, .pose.ring .tag { display:block; }
+  .pose.fresh { z-index:1800 !important; }
+  .pose.fresh .tag { animation:tagIn .4s ease-out both; }
+  @keyframes tagIn { from { opacity:0; transform:translate(-50%, 6px); } to { opacity:1; transform:translateX(-50%); } }
+  /* The couple's caption sits under their feet, like the caption of a photo. */
+  .pose.couple .tag { background:rgba(128,84,24,.95); border-color:#f0c070; bottom:auto; top:100%; margin:4px 0 0; }
+  #crowd-l .pose .tag { left:0; transform:none; }
+  #crowd-r .pose .tag { left:auto; right:0; transform:none; }
+  .pose.off { opacity:.35; filter:grayscale(1); }
+  .pose .kick { position:absolute; inset:-4px; background:none; border:none; cursor:pointer; opacity:0; }
+
+  /* The bell. A small one over the head while the bet stands; when a guest
+     rings, they jump, the bell swings big over them and a gold ring spreads. */
+  .pose .bell { display:none; position:absolute; left:72%; bottom:74%; width:calc(var(--sw) * .55); aspect-ratio:1;
+                background:var(--bell-img) center / contain no-repeat; image-rendering:pixelated;
+                transform-origin:50% 12%; pointer-events:none; z-index:2; }
+  .pose.armed .bell { display:block; animation:bellIdle 2.6s ease-in-out infinite; }
+  @keyframes bellIdle { 0%, 70%, 100% { rotate:0deg; } 78% { rotate:-16deg; } 86% { rotate:14deg; } 94% { rotate:-6deg; } }
+  .pose.ring { z-index:2000 !important; }
+  .pose.ring .body { animation:ringHop .45s ease-out 3; }
+  @keyframes ringHop { 0%, 100% { transform:none; } 40% { transform:translateY(-24%); } }
+  .pose.ring .sprite { filter:drop-shadow(0 0 3px #fff6c0) drop-shadow(0 0 8px #ffd84a); }
+  .pose.ring .bell { display:block; left:50%; bottom:100%; width:calc(var(--sw) * 1.05); translate:-50% 0;
+                     animation:bellSwing .22s ease-in-out 10 alternate; }
+  @keyframes bellSwing { from { rotate:-30deg; } to { rotate:30deg; } }
+  .pose.ring .tag { background:#ffd84a; color:#2a1a14; border-color:#fff3b0; margin-bottom:calc(var(--sw) * 1.15); }
+  .pose .wave { position:absolute; left:50%; top:20%; width:var(--sw); aspect-ratio:1; translate:-50% -50%;
+                border-radius:50%; border:3px solid #ffd84a; box-shadow:0 0 12px rgba(255,216,74,.8);
+                opacity:0; pointer-events:none; }
+  .pose.ring .wave { animation:wave .9s ease-out 3; }
+  @keyframes wave { from { scale:.3; opacity:1; } to { scale:3.6; opacity:0; } }
+  /* At the reveal: the bet paid off (gold, jumping) or it did not (grey shake). */
+  .pose.bellwin { z-index:1500 !important; }
+  .pose.bellwin .body { animation:ringHop .45s ease-out 4; }
+  .pose.bellwin .sprite { filter:drop-shadow(0 0 3px #fff6c0) drop-shadow(0 0 10px #ffd84a); }
+  .pose.bellwin .wave { animation:wave .9s ease-out 2; }
+  .pose.belllose .body { animation:loseShake .12s linear 8 alternate; }
+  .pose.belllose .sprite { filter:grayscale(.85) brightness(.8); }
+  @keyframes loseShake { from { transform:translateX(-6%); } to { transform:translateX(6%); } }
+
+  /* Someone rang while nobody can see the crowd (the rules screen). */
+  #bell-toasts { position:fixed; top:14vh; left:50%; translate:-50% 0; z-index:30; display:flex; flex-direction:column;
+                 align-items:center; gap:8px; pointer-events:none; }
+  .bell-toast { background:#ffd84a; color:#2a1a14; font-weight:900; font-size:clamp(18px, 2.4vh, 34px);
+                border:3px solid #fff3b0; box-shadow:0 0 0 3px #7a4f08, 0 0 24px rgba(255,216,74,.7);
+                border-radius:999px; padding:.2em 1em; animation:toastIn .35s cubic-bezier(.3,1.5,.5,1) both; }
+  @keyframes toastIn { from { opacity:0; scale:.6; } to { opacity:1; scale:1; } }
 
   .qtext { font-size: clamp(28px, 3.6vw, 52px); font-weight:900; line-height:1.35;
            text-align:center; margin:10px 0 22px; }
@@ -499,7 +540,6 @@
 
   .url { font-size:clamp(26px, 3.2vh, 48px); }
   .pin-hero .hint { font-size:clamp(20px, 2.6vh, 38px) !important; }
-  .runner .tag, .runner.couple .tag { font-size:clamp(11px, 1.5vh, 22px); padding:.1em .6em; }
 
   .qtext { font-size:clamp(28px, min(3.8vw, 6.4vh), 80px); }
   .answers.host .answer { font-size:clamp(18px, min(2.1vw, 3.7vh), 48px); padding:clamp(26px, 3vh, 46px) 22px; }
@@ -549,6 +589,9 @@
   <div class="scene" data-k="night"></div>
   <div id="fx"></div>
 </div>
+<div id="crowd-l" class="crowd side"></div>
+<div id="crowd-r" class="crowd side"></div>
+<div id="bell-toasts"></div>
 <div class="wrap">
 
   <!-- AUTH -->
@@ -636,7 +679,7 @@
         </div>
         <div class="qr" id="qr"></div>
       </div>
-      <div class="runfield" id="field"></div>
+      <div class="crowd" id="field"></div>
       <p class="center" style="margin:0"><span class="hint pill" id="lobby-hint">รอผู้เล่นเข้าร่วม…</span></p>
     </div>
 
@@ -676,7 +719,7 @@
     <div id="v-board" class="grow" style="display:none">
       <div class="center"><span class="monogram pill" style="font-size:16px">Leaderboard</span></div>
       <ul class="lb" id="lb"></ul>
-      <p class="center" style="margin:10px 0 0"><span class="hint pill bellpill" id="b-bells" hidden>🔔 กดกระดิ่งรอข้อถัดไปแล้ว <b id="b-bells-n">0</b> คน</span></p>
+      <p class="center" style="margin:4px 0 0"><span class="hint pill bellpill" id="b-bells" hidden>🔔 กดกระดิ่งรอข้อถัดไปแล้ว <b id="b-bells-n">0</b> คน</span></p>
     </div>
 
     <!-- ended -->
